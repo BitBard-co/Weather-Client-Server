@@ -5,7 +5,6 @@
 #include <string.h>
 
 
-
 int http_api_request(char* _URL, NetworkHandler** _NhPtr) {
   NetworkHandler* nh = calloc(1, sizeof *nh); /*Creathe nh struct null initialized*/
   /*Make api request with CURL*/

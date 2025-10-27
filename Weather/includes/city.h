@@ -4,11 +4,13 @@ typedef struct LinkedList LinkedList;
 
 
 typedef struct City {
-	City* prev;
-	City* next;
+	struct City* prev;
+	struct City* next;
 	char* name;
 	float latitude;
 	float longitude;
+	
+
 } City;
 
 int city_get_info(Cities* _CityList);

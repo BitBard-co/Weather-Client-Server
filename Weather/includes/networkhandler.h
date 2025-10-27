@@ -9,6 +9,7 @@
 typedef struct {
   char *data;
   size_t size;
+  int sockfd;
 } NetworkHandler;
 
 int networkhandler_get_data(char* _URL, Meteo** _Meteo, int _Flag);

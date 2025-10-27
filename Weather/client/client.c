@@ -1,28 +1,26 @@
 #include "client.h"
+#include "../includes/cities.h"
+#include "../includes/city.h"
+#include "../includes/utils.h"
+#include "../includes/http.h"
+
 
 // Funktion för kommunikation med servern
 void func(int sockfd)
 {
-    char buff[MAX];
-    int n;
+  (void)sockfd; // tysta varning
+  Cities cities;
+  printf("Welcome!\n");
+  printf("Please select a city from the list below to get a weather report\n");
+  while (1) {
 
-    for (;;) {
-        bzero(buff, sizeof(buff));
-        printf("Enter the string : ");
-        n = 0;
-        while ((buff[n++] = getchar()) != '\n')
-            ;
+    cities_init(&cities);
 
-        write(sockfd, buff, sizeof(buff));
-        bzero(buff, sizeof(buff));
-        read(sockfd, buff, sizeof(buff));
-        printf("From Server : %s", buff);
-
-        if ((strncmp(buff, "exit", 4)) == 0) {
-            printf("Client Exit...\n");
-            break;
-        }
+    if (utils_break_loop() != 0) {
+      break;
     }
+  }
+
 }
 
 // Funktion för att starta klienten (istället för main)
@@ -58,4 +56,9 @@ void start_client(void)
 
     // Stäng socket
     close(sockfd);
+}
+
+int main(){
+    start_client();
+    return 0;
 }

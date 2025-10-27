@@ -77,3 +77,8 @@ void start_server(void)
     // Stäng socket
     close(sockfd);
 }
+
+int main(void) {
+    start_server();
+    return 0;
+}

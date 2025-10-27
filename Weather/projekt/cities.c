@@ -8,6 +8,7 @@
 #include "../includes/networkhandler.h"
 #include "../includes/parsedata.h"
 
+
 /*--------Internal function definitions-------*/
 void cities_print(Cities* _cities);
 int cities_add_from_string(Cities* _Cities, const char* list);
