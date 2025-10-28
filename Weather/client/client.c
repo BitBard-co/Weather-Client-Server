@@ -5,31 +5,53 @@
 #include "../includes/http.h"
 
 
-// Funktion för kommunikation med servern
 void func(int sockfd)
 {
-  (void)sockfd; // tysta varning
-  Cities cities;
-  printf("Welcome!\n");
-  printf("Please select a city from the list below to get a weather report\n");
-  while (1) {
+    Cities cities;
+    cities_init(&cities); // initiera bara en gång
 
-    cities_init(&cities);
+    printf("🌤️  Welcome!\n");
+    printf("Please select a city from the list below to get a weather report:\n");
 
-    if (utils_break_loop() != 0) {
-      break;
+    char buffer[1024];
+
+    while (1) {
+        // Visa listan (beroende på hur din Cities-struktur funkar)
+        cities_print(&cities); 
+
+        printf("\nEnter city name (or 'quit' to exit): ");
+        fgets(buffer, sizeof(buffer), stdin);
+
+        // ta bort newline från fgets
+        buffer[strcspn(buffer, "\n")] = '\0';
+
+        if (strcmp(buffer, "quit") == 0) {
+            printf("👋 Goodbye!\n");
+            break;
+        }
+
+        
+        write(sockfd, buffer, strlen(buffer));
+
+        bzero(buffer, sizeof(buffer));
+        int n = read(sockfd, buffer, sizeof(buffer)-1);
+        if (n > 0) {
+            buffer[n] = '\0';
+            printf("Server reply: %s\n\n", buffer);
+        } else {
+            printf("⚠️  No response from server.\n");
+        }
     }
-  }
-
+      cities_free(&cities); 
+ 
 }
 
-// Funktion för att starta klienten (istället för main)
+// Funktion för att starta klienten 
 void start_client(void)
 {
     int sockfd;
     struct sockaddr_in servaddr;
 
-    // Skapa socket
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1) {
         printf("❌ Socket creation failed.\n");

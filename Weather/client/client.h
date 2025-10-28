@@ -9,6 +9,8 @@
 #include <strings.h> // bzero()
 #include <sys/socket.h>
 #include <unistd.h>
+#include <netinet/in.h>
+
 
 #define MAX 80
 #define PORT 8080

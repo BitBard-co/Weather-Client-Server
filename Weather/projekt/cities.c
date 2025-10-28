@@ -14,6 +14,7 @@ void cities_print(Cities* _cities);
 int cities_add_from_string(Cities* _Cities, const char* list);
 void cities_add_from_files(Cities* _Cities);
 void cities_dispose(Cities* _Cities);
+void cities_free(Cities* _Cities);
 /*------------------------------------------*/
 
 const char* cities_list = "Stockholm:59.3293:18.0686\n"
@@ -293,4 +294,12 @@ void cities_dispose(Cities* _Cities) {
   _Cities->head = NULL;
   _Cities->tail = NULL;
 
+}
+
+void cities_free(Cities* _Cities) {
+    if (_Cities->list != NULL) {
+        free(_Cities->list);
+        _Cities->list = NULL;
+        _Cities->count = 0;
+    }
 }

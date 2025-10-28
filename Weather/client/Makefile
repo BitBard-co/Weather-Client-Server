@@ -1,56 +1,52 @@
 # Compiler and flags
-CC := gcc
-CFLAGS := -Wall -Wextra -g -Wno-deprecated-non-prototype \
-          -I/opt/homebrew/opt/openssl@3/include \
-          -I../includes \
-          -Isrc/libs/cjson
+CC = gcc
+CFLAGS = -Wall -Wextra -g -Wno-deprecated-non-prototype
+INCLUDES = -I../includes -I. -I/opt/homebrew/opt/openssl@3/include
+LDFLAGS = -L/opt/homebrew/opt/openssl@3/lib -lssl -lcrypto -lcurl
 
-# Directories
-PROJ_DIR := ../projekt
-BUILD_DIR := build
-CJSON_DIR := src/libs/cjson
+# Build directories
+BUILD_DIR = build
+BUILD_PROJ = $(BUILD_DIR)/projekt
 
 # Source files
-PROJ_SRC := cache.c cities.c city.c http.c meteo.c networkhandler.c parsedata.c utils.c
-PROJ_OBJ := $(addprefix $(BUILD_DIR)/projekt/, $(PROJ_SRC:.c=.o))
+CLIENT_SRC = client.c
+PROJ_SRCS = ../projekt/cache.c ../projekt/cities.c ../projekt/city.c ../projekt/http.c ../projekt/meteo.c ../projekt/networkhandler.c ../projekt/parsedata.c ../projekt/utils.c
+CJSON_SRC = cJSON.c
 
-CJSON_SRC := $(CJSON_DIR)/cJSON.c $(CJSON_DIR)/cJSON_Utils.c
-CJSON_OBJ := $(addprefix $(BUILD_DIR)/cjson/, $(notdir $(CJSON_SRC:.c=.o)))
+# Object files
+CLIENT_OBJ = $(BUILD_DIR)/client.o
+PROJ_OBJS = $(patsubst ../projekt/%.c,$(BUILD_PROJ)/%.o,$(PROJ_SRCS))
+CJSON_OBJ = $(BUILD_DIR)/cJSON.o
 
-CLIENT_SRC := client.c
-CLIENT_OBJ := $(BUILD_DIR)/client.o
-
-# Binary
-BIN := client
+# Final executable
+TARGET = client
 
 # Default target
-all: $(BIN)
+all: $(TARGET)
+
+# Build client object
+$(CLIENT_OBJ): $(CLIENT_SRC)
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+# Build project objects
+$(BUILD_PROJ)/%.o: ../projekt/%.c
+	mkdir -p $(BUILD_PROJ)
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+# Build cJSON object
+$(CJSON_OBJ): $(CJSON_SRC)
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 # Link all objects
-$(BIN): $(CLIENT_OBJ) $(PROJ_OBJ) $(CJSON_OBJ)
-	$(CC) $^ -o $@ -L/opt/homebrew/opt/openssl@3/lib -lssl -lcrypto -lcurl
+$(TARGET): $(CLIENT_OBJ) $(PROJ_OBJS) $(CJSON_OBJ)
+	$(CC) $^ -o $(TARGET) $(LDFLAGS)
 
-# Compile client
-$(BUILD_DIR)/client.o: client.c
-	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# Compile project source files
-$(BUILD_DIR)/projekt/%.o: $(PROJ_DIR)/%.c
-	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# Compile cJSON source files
-$(BUILD_DIR)/cjson/%.o: $(CJSON_DIR)/%.c
-	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# Run the binary
-run: $(BIN)
-	./$(BIN)
-
-# Clean build
+# Clean build files
 clean:
-	rm -rf $(BUILD_DIR) $(BIN)
+	rm -rf $(BUILD_DIR) $(TARGET)
 
-.PHONY: all run clean
+# Run the program
+run: $(TARGET)
+	./$(TARGET)

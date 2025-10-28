@@ -25,7 +25,7 @@ void func_server(int connfd)
     }
 }
 
-// Funktion för att starta servern (ersätter main)
+// Funktion för att starta servern
 void start_server(void)
 {
     int sockfd, connfd;
