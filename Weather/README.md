@@ -326,3 +326,9 @@ wsl bash -lc "cd /mnt/c/Academy/Main_project/Weather-Client-Server && make run"
   pwd; ls -1 Makefile
   ```
 - Missing headers (OpenSSL/cURL): install the dev packages shown above. On Ubuntu, cURL headers live under `/usr/include/x86_64-linux-gnu/curl/` and are already accounted for in the Makefiles.
+
+---
+
+## Additional Note
+
+The main Weather project was originally taken from our previous group’s work. This version builds on that project and gives full credit to the original team.
