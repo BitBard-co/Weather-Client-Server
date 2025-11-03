@@ -206,6 +206,17 @@ void utils_replace_swedish_chars(char* _String) {
       }
     }
 
+    /* Handle combining marks that can appear after base letters (e.g., a + \u0308, A + \u030A) */
+    if (source[0] == 0xCC && source[1] != '\0') {
+      switch (source[1]) {
+        case 0x88: /* \u0308 COMBINING DIAERESIS */
+        case 0x8A: /* \u030A COMBINING RING ABOVE */
+          /* Skip combining mark entirely to normalize to base letter */
+          source += 2;
+          continue;
+      }
+    }
+
     *(destination)++ = *(source)++; /*Copy current byte
     multibyte chars will be copied over multiple iterations*/
   }
