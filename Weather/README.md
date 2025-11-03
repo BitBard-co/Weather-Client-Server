@@ -261,3 +261,68 @@ Cache and data folders (`cache/`, `cities/`) are created automatically next to t
 - cJSON for JSON parsing.
 - libcurl for HTTP.
 - OpenSSL EVP for MD5 hashing of cache keys.
+
+---
+
+## Quick start on WSL (Ubuntu) — build and run
+
+Follow these minimal, copy‑paste steps to compile and run everything in Windows Subsystem for Linux.
+
+1) Install toolchain and libraries (inside WSL):
+
+```bash
+sudo apt update
+sudo apt install -y build-essential libssl-dev libcurl4-openssl-dev
+```
+
+2) Go to the project folder (Windows path is under /mnt/c):
+
+```bash
+cd /mnt/c/Academy/Main_project/Weather-Client-Server
+```
+
+3) Build from the repo root (a top‑level Makefile delegates to the Weather subproject):
+
+```bash
+make clean
+make
+```
+
+4) Run the Weather CLI app:
+
+```bash
+make run
+```
+
+You’ll see the city list and an input prompt. Type a city name (e.g., "Stockholm"). If the city doesn’t exist locally, use the search option to add it; results are cached in `cities/` and weather in `cache/`.
+
+5) Optional — run the TCP demo:
+
+- Server (terminal A):
+  ```bash
+  make -C Weather/server
+  make -C Weather/server run
+  ```
+
+- Client (terminal B):
+  ```bash
+  make -C Weather/client
+  make -C Weather/client run
+  ```
+
+### Running from Windows PowerShell via WSL
+
+If you prefer to trigger builds from PowerShell, call into WSL to use the Linux toolchain:
+
+```powershell
+wsl bash -lc "cd /mnt/c/Academy/Main_project/Weather-Client-Server && make clean && make"
+wsl bash -lc "cd /mnt/c/Academy/Main_project/Weather-Client-Server && make run"
+```
+
+### Troubleshooting quick checks
+
+- No makefile found: ensure you’re in the repo root or `Weather/` directory.
+  ```bash
+  pwd; ls -1 Makefile
+  ```
+- Missing headers (OpenSSL/cURL): install the dev packages shown above. On Ubuntu, cURL headers live under `/usr/include/x86_64-linux-gnu/curl/` and are already accounted for in the Makefiles.
