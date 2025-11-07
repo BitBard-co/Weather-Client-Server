@@ -9,6 +9,12 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "../includes/meteo.h"
+#include "../includes/cities.h"
+#include "../includes/city.h"
+#include "../includes/parsedata.h"
+#include "../includes/networkhandler.h"
+#include "../includes/utils.h"
 
 #define MAX 80
 #define PORT 8080

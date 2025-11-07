@@ -1,29 +1,35 @@
 #include "server.h"
 
-// Funktion för chatten mellan klient och server
 void func_server(int connfd)
 {
-    char buff[MAX];
-    int n;
-
+    char cityName[MAX];
+    char response[MAX];
     for (;;) {
-        bzero(buff, MAX);
-        read(connfd, buff, sizeof(buff));
-        printf("From client: %s\tTo client: ", buff);
 
-        bzero(buff, MAX);
-        n = 0;
-        while ((buff[n++] = getchar()) != '\n')
-            ;
+        bzero(cityName, sizeof(cityName));
 
-        write(connfd, buff, sizeof(buff));
+        int n = read(connfd, cityName, sizeof(cityName) - 1);
+        if (n <= 0)
+            break; // client closed connection
 
-        if (strncmp("exit", buff, 4) == 0) {
+        cityName[strcspn(cityName, "\n")] = '\0';
+        printf("🌤️  Client requested weather for: %s\n", cityName);
+        if (strncmp(cityName, "exit", 4) == 0) {
             printf("Server Exit...\n");
             break;
         }
+
+   
+        snprintf(response, sizeof(response),
+                 "✅ Got your request for '%s' — server is processing it!\n",
+                 cityName);
+
+        write(connfd, response, strlen(response));
     }
+
+    close(connfd);
 }
+
 
 // Funktion för att starta servern
 void start_server(void)
