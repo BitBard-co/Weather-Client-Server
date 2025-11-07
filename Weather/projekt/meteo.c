@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #include <stdio.h>
 #include <string.h>
 #include "../includes/utils.h"
@@ -307,4 +306,3 @@ void meteo_dispose(Meteo* _Meteo) {
   free(_Meteo);
 
 }
->>>>>>> badae77272f9a49f7ea7b48df6d7890ee28ec22b
