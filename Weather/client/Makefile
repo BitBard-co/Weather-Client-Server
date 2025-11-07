@@ -18,6 +18,12 @@ CLIENT_OBJ = $(BUILD_DIR)/client.o
 PROJ_OBJS = $(patsubst ../projekt/%.c,$(BUILD_PROJ)/%.o,$(PROJ_SRCS))
 CJSON_OBJ = $(BUILD_DIR)/cJSON.o
 
+
+# 🔹 Lägg till Homebrew OpenSSL-sökväg
+OPENSSL_PATH := /opt/homebrew/opt/openssl@3
+CFLAGS += -I$(OPENSSL_PATH)/include
+LDFLAGS += -L$(OPENSSL_PATH)/lib -lssl -lcrypto -lcurl
+å
 # Final executable
 TARGET = client
 
