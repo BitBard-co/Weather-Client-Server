@@ -1,8 +1,8 @@
 # Compiler and flags
 CC = gcc
 CFLAGS = -Wall -Wextra -g -Wno-deprecated-non-prototype
-INCLUDES = -I../includes -I. -I/opt/homebrew/opt/openssl@3/include
-LDFLAGS = -L/opt/homebrew/opt/openssl@3/lib -lssl -lcrypto -lcurl
+INCLUDES = -I../includes -I. -I/usr/include/x86_64-linux-gnu
+LDFLAGS = -lssl -lcrypto -lcurl
 
 # Build directories
 BUILD_DIR = build
