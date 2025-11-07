@@ -1,35 +1,43 @@
 #include "server.h"
 
+void faktan(const char *cityName, char *response, size_t size) {
+    printf("🌤️  Client requested weather for: %s\n", cityName);
+
+    snprintf(response, size,
+             "✅ Got your request for '%s' — server is processing it!\n",
+             cityName);
+}
+// Main server loop
 void func_server(int connfd)
 {
     char cityName[MAX];
     char response[MAX];
-    for (;;) {
 
+    for (;;) {
         bzero(cityName, sizeof(cityName));
 
         int n = read(connfd, cityName, sizeof(cityName) - 1);
         if (n <= 0)
-            break; // client closed connection
+            break; // client disconnected
 
+        // Remove newline if present
         cityName[strcspn(cityName, "\n")] = '\0';
-        printf("🌤️  Client requested weather for: %s\n", cityName);
+
+        // Exit check
         if (strncmp(cityName, "exit", 4) == 0) {
             printf("Server Exit...\n");
             break;
         }
 
-   
-        snprintf(response, sizeof(response),
-                 "✅ Got your request for '%s' — server is processing it!\n",
-                 cityName);
+        // Generate the response using helper
+        faktan(cityName, response, sizeof(response));
 
+        // Send it to the client
         write(connfd, response, strlen(response));
     }
 
     close(connfd);
 }
-
 
 // Funktion för att starta servern
 void start_server(void)
