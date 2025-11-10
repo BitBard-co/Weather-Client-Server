@@ -39,6 +39,23 @@ void func_server(int connfd)
     close(connfd);
 }
 
+void swtichcases(){ 
+    int choice;
+    printf("Vad vill du veta om staden?: ");
+    scanf("%d ", &choice);
+    switch (choice)
+    {
+    case 1:
+        faktan();
+        break;
+
+    case 2;
+    
+    default:
+        break;
+    }
+}
+
 // Funktion för att starta servern
 void start_server(void)
 {
@@ -87,6 +104,7 @@ void start_server(void)
 
     // Kör chatfunktion
     func_server(connfd);
+    switchcases();
 
     // Stäng socket
     close(sockfd);
