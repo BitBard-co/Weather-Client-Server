@@ -11,17 +11,17 @@ void faktan(const char *cityName, char *response, size_t size) {
 void switchcases(const char *cityName, char *response, size_t size){ 
     while (true)
     {
-    printf("Main Menu for the Server information\n");
-    printf("==============================================\n");
+    printf("\nMain Menu for the Server information\n");
+    printf("==============================================\n\n");
     printf("1. To see which cities we have entered\n");
     printf("2. To see the weather for the city you choose\n");
     printf("==============================================\n");
     
     int choice;
 
-    printf("What would you like to know about the city?: ");
+    printf("What would you like to know about the city: ");
 
-    scanf("%d ", &choice);
+    scanf("%d", &choice);
 
     switch (choice)
     {
