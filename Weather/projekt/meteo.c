@@ -115,6 +115,7 @@ void meteo_print_weatherdata(MeteoWeatherData* _MWD) {
   printf("\n");
 }
 
+
 void meteo_print_full_weatherdata(MeteoWeatherData* _MWD) {
   printf("Would you like to get the full weather report? Y/N: ");
 
