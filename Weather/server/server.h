@@ -15,6 +15,7 @@
 #include "../includes/parsedata.h"
 #include "../includes/networkhandler.h"
 #include "../includes/utils.h"
+#include <stdbool.h>
 
 #define MAX 80
 #define PORT 8080

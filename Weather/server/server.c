@@ -7,6 +7,37 @@ void faktan(const char *cityName, char *response, size_t size) {
              "✅ Got your request for '%s' — server is processing it!\n",
              cityName);
 }
+
+void switchcases(const char *cityName, char *response, size_t size){ 
+    while (true)
+    {
+    printf("Main Menu for the Server information\n");
+    printf("==============================================\n");
+    printf("1. To see which cities we have entered\n");
+    printf("2. To see the weather for the city you choose\n");
+    printf("==============================================\n");
+    
+    int choice;
+
+    printf("What would you like to know about the city?: ");
+
+    scanf("%d ", &choice);
+
+    switch (choice)
+    {
+    case 1:
+        faktan(cityName, response, sizeof(response));
+        break;
+    case 2:
+        printf("fakta kommer strax");
+        break;
+
+    default:
+        break;
+    }
+      }
+}
+
 // Main server loop
 void func_server(int connfd)
 {
@@ -29,31 +60,13 @@ void func_server(int connfd)
             break;
         }
 
-        // Generate the response using helper
-        faktan(cityName, response, sizeof(response));
+        switchcases(cityName, response, sizeof(response));
 
         // Send it to the client
         write(connfd, response, strlen(response));
     }
 
     close(connfd);
-}
-
-void swtichcases(){ 
-    int choice;
-    printf("Vad vill du veta om staden?: ");
-    scanf("%d ", &choice);
-    switch (choice)
-    {
-    case 1:
-        faktan();
-        break;
-
-    case 2;
-    
-    default:
-        break;
-    }
 }
 
 // Funktion för att starta servern
@@ -104,7 +117,6 @@ void start_server(void)
 
     // Kör chatfunktion
     func_server(connfd);
-    switchcases();
 
     // Stäng socket
     close(sockfd);
