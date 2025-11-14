@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 {"latitude":62.393658,"longitude":17.30104,"generationtime_ms":0.07069110870361328,"utc_offset_seconds":0,"timezone":"GMT","timezone_abbreviation":"GMT","elevation":10.0,"current_weather_units":{"time":"iso8601","interval":"seconds","temperature":"°C","windspeed":"km/h","winddirection":"°","is_day":"","weathercode":"wmo code"},"current_weather":{"time":"2025-11-07T15:15","interval":900,"temperature":5.2,"windspeed":3.2,"winddirection":304,"is_day":0,"weathercode":51}}
+=======
+{"latitude":62.393658,"longitude":17.30104,"generationtime_ms":0.27632713317871094,"utc_offset_seconds":0,"timezone":"GMT","timezone_abbreviation":"GMT","elevation":10.0,"current_weather_units":{"time":"iso8601","interval":"seconds","temperature":"°C","windspeed":"km/h","winddirection":"°","is_day":"","weathercode":"wmo code"},"current_weather":{"time":"2025-11-07T14:45","interval":900,"temperature":5.3,"windspeed":3.2,"winddirection":266,"is_day":0,"weathercode":51}}
+>>>>>>> 09956ccb20c50c938b47ae1a5317305690560edb

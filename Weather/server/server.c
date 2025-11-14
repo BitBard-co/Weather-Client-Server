@@ -1,28 +1,42 @@
 #include "server.h"
 
-// Funktion för chatten mellan klient och server
+void faktan(const char *cityName, char *response, size_t size) {
+    printf("🌤️  Client requested weather for: %s\n", cityName);
+
+    snprintf(response, size,
+             "✅ Got your request for '%s' — server is processing it!\n",
+             cityName);
+}
+
 void func_server(int connfd)
 {
-    char buff[MAX];
-    int n;
+    char cityName[MAX];
+    char response[MAX];
 
     for (;;) {
-        bzero(buff, MAX);
-        read(connfd, buff, sizeof(buff));
-        printf("From client: %s\tTo client: ", buff);
+        bzero(cityName, sizeof(cityName));
 
-        bzero(buff, MAX);
-        n = 0;
-        while ((buff[n++] = getchar()) != '\n')
-            ;
+        int n = read(connfd, cityName, sizeof(cityName) - 1);
+        if (n <= 0)
+            break; // client disconnected
 
-        write(connfd, buff, sizeof(buff));
+        // Remove newline if present
+        cityName[strcspn(cityName, "\n")] = '\0';
 
-        if (strncmp("exit", buff, 4) == 0) {
+        // Exit check
+        if (strncmp(cityName, "exit", 4) == 0) {
             printf("Server Exit...\n");
             break;
         }
+
+        // Generate the response using helper
+        faktan(cityName, response, sizeof(response));
+
+        // Send it to the client
+        write(connfd, response, strlen(response));
     }
+
+    close(connfd);
 }
 
 // Funktion för att starta servern
