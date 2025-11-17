@@ -1,22 +1,23 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "../includes/utils.h"
 #include "../includes/meteo.h"
 #include "../includes/parsedata.h"
 #include "../includes/networkhandler.h"
-#include "../includes/parsedata.h"
+#include "../src/libs/cJSON/cJSON.h"
+
 /*-----------Internal function declarations-----------*/
 void meteo_print_weatherdata(MeteoWeatherData* _MWD);
 void meteo_print_full_weatherdata(MeteoWeatherData* _MWD);
 void meteo_dispose(Meteo* _Meteo);
-
 /*----------------------------------------------------*/
 int meteo_get_weather_data(double _Latitude, double _Longitude, char* _CityName) {
-  char url[150];
-  sprintf(url,
-          "https://api.open-meteo.com/v1/"
-          "forecast?latitude=%.4f&longitude=%.4f&current_weather=true",
-          _Latitude, _Longitude); /*Create request url*/
+char url[150];
+snprintf(url, sizeof(url),
+         "https://api.open-meteo.com/v1/"
+         "forecast?latitude=%.4f&longitude=%.4f&current_weather=true",
+         _Latitude, _Longitude);
   
   Meteo* m = NULL; /*Meteo struct to hold data*/
   
@@ -27,25 +28,23 @@ int meteo_get_weather_data(double _Latitude, double _Longitude, char* _CityName)
 
   MeteoWeatherData MWD = {0}; /*MWD Struct to hold all specific data fields*/
 
-   cJSON* root = cJSON_Parse(m->data);
-    if (root == NULL) {
-      const char* error_pointer = cJSON_GetErrorPtr();
-      if (error_pointer != NULL){
-          fprintf(stderr,"JSON error %s\n", error_pointer);
-      }
-        free(m->data);
-        free(m);
-        return -1;
+cJSON* root = cJSON_Parse(m->data);
+if (root == NULL) {
+    const char* error_pointer = cJSON_GetErrorPtr();
+    if (error_pointer != NULL){
+        fprintf(stderr,"JSON error %s\n", error_pointer);
     }
+    meteo_dispose(m);
+    return -1;
+}
 
-  cJSON* current_weather = cJSON_GetObjectItemCaseSensitive(root, "current_weather");
-  if (current_weather == NULL){
-      fprintf(stderr, "current_weather section missing in JSON\n");
-      cJSON_Delete(root);
-      free(m->data);
-      free(m);
-      return -1;
-    }
+cJSON* current_weather = cJSON_GetObjectItemCaseSensitive(root, "current_weather");
+if (current_weather == NULL){
+    fprintf(stderr, "current_weather section missing in JSON\n");
+    cJSON_Delete(root);
+    meteo_dispose(m);
+    return -1;
+}
   
   /*Populates MWD Struct with all data fields*/
   MWD.name = _CityName;
@@ -53,10 +52,13 @@ int meteo_get_weather_data(double _Latitude, double _Longitude, char* _CityName)
   MWD.longitude = parsedata_get_double(root, "longitude");
   MWD.generationtime_ms = parsedata_get_double(root, "generationtime_ms");
   MWD.utc_offset_seconds = parsedata_get_int(root, "utc_offset_seconds");
-  strcpy(MWD.timezone, parsedata_get_string(root, "timezone"));
-  strcpy(MWD.timezone_abbreviation, parsedata_get_string(root, "timezone_abbreviation"));
+snprintf(MWD.timezone, sizeof(MWD.timezone), "%s",
+         parsedata_get_string(root, "timezone"));
+snprintf(MWD.timezone_abbreviation, sizeof(MWD.timezone_abbreviation), "%s",
+         parsedata_get_string(root, "timezone_abbreviation"));
   MWD.elevation = parsedata_get_double(root, "elevation");
-  strcpy(MWD.time, parsedata_get_string(current_weather, "time"));
+snprintf(MWD.time, sizeof(MWD.time), "%s",
+         parsedata_get_string(current_weather, "time"));
   MWD.interval = parsedata_get_int(current_weather, "interval");
   MWD.temperature = parsedata_get_double(current_weather, "temperature");
   MWD.windspeed = parsedata_get_double(current_weather, "windspeed");
@@ -68,18 +70,17 @@ int meteo_get_weather_data(double _Latitude, double _Longitude, char* _CityName)
   meteo_print_full_weatherdata(&MWD); /*Prints full weatherdata*/
 
   cJSON_Delete(root);
-  free(m->data);
-  free(m);
+  meteo_dispose(m);
 
   return 0;
 
 }
 
 cJSON* meteo_get_city_data(char* _CityName) {
-  char url[150];
-  sprintf(url,
-          "https://geocoding-api.open-meteo.com/v1/search?name=%s&count=1",
-          _CityName); /*Creates request URL*/
+char url[150];
+snprintf(url, sizeof(url),
+         "https://geocoding-api.open-meteo.com/v1/search?name=%s&count=1",
+         _CityName);
   
   Meteo* m = NULL;
   if (networkhandler_get_data(url, &m, FLAG_NO_WRITE) != 0) { /*Get City data from networkhandler*/

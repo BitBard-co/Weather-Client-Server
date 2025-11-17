@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "../includes/utils.h"
 #include "../includes/cities.h"
 #include "../includes/city.h"
@@ -7,7 +8,6 @@
 #include "../includes/cache.h"
 #include "../includes/networkhandler.h"
 #include "../includes/parsedata.h"
-
 
 /*--------Internal function definitions-------*/
 void cities_print(Cities* _cities);
@@ -46,13 +46,6 @@ int cities_init(Cities* _Cities) {
   cities_add_from_files(_Cities); /*Reads files in cities/ and populates _Cities list*/
 
   if (cities_add_from_string(_Cities, cities_list) != 0) {
-    cities_dispose(_Cities);
-    return -1;
-  }
-  
-  cities_print(_Cities);
-
-  if (city_get_info(_Cities) != 0) {
     cities_dispose(_Cities);
     return -1;
   }
@@ -104,10 +97,7 @@ int cities_add_from_string(Cities* _Cities, const char* list) {
 
 	} while (*(ptr) != '\0');
 
-    if (list_copy != NULL) {
-      free(list_copy);
-  }
-
+  free(list_copy);
     return 0;
 }
 
@@ -183,37 +173,37 @@ void cities_remove(Cities* _Cities, City* _City) {
         _City->prev->next = _City->next;
     }
     
-	free(_City);
+  city_dispose(_City);
 
   return;
 }
 
 int cities_get(Cities* _Cities, char* _Name, City** _CityPtr) {
-  City* current = _Cities->head;
-
-  /*Create copy and replace swedish characters to enable case insensitive search*/
-  char name_copy[128];   strcpy(name_copy, _Name);
-  name_copy[sizeof(name_copy) - 1] = '\0';
-  utils_replace_swedish_chars(name_copy);
-
-  while(current != NULL) {
-
-    /*Create copy and replace swedish characters to enable case insensitive search*/
-    char city_name_copy[128];
-    strcpy(city_name_copy, current->name);
-    city_name_copy[sizeof(city_name_copy) - 1] = '\0';
-    utils_replace_swedish_chars(city_name_copy);
-
-
-    if (current->name && utils_strcasecmp(city_name_copy, name_copy) == 0) {
-      if (_CityPtr != NULL) {
-        *_CityPtr = current;
-        return 0;
-      }
+    if (_Cities == NULL || _Name == NULL) {
+        return -1;
     }
-    current = current->next;
-  }
-   return -1;
+
+    City* current = _Cities->head;
+
+    char name_copy[128];
+    snprintf(name_copy, sizeof(name_copy), "%s", _Name);
+    utils_replace_swedish_chars(name_copy);
+
+    while (current != NULL) {
+        char city_name_copy[128];
+        snprintf(city_name_copy, sizeof(city_name_copy), "%s", current->name);
+        utils_replace_swedish_chars(city_name_copy);
+
+        if (current->name && utils_strcasecmp(city_name_copy, name_copy) == 0) {
+            if (_CityPtr != NULL) {
+                *_CityPtr = current;
+            }
+            return 0;
+        }
+        current = current->next;
+    }
+
+    return -1;
 }
 
 void cities_add_from_files(Cities* _Cities) {
@@ -230,13 +220,13 @@ void cities_add_from_files(Cities* _Cities) {
     tinydir_readfile(&dir, &file); /*Reads each file in cities*/
 
     if (!file.is_dir) { /*If file is not a directory*/
-      char filename[50];
-      strcpy(filename, file.name); /*Contains .json*/
-      filename[strlen(filename) - 5] = '\0'; /*removes .json from filename*/
-      char *dot = strrchr(filename, '.');
-      if (dot && strcmp(dot, ".json") == 0) {
-        *dot = '\0'; 
-      }
+    char filename[50];
+    snprintf(filename, sizeof(filename), "%s", file.name);
+
+    size_t len = strlen(filename);
+    if (len > 5 && strcmp(filename + len - 5, ".json") == 0) {
+      filename[len - 5] = '\0'; // ta bort .json
+    }
 
       
       if (cache_read_file(filename, &nh, CITY_CACHE) != 0) {
@@ -260,7 +250,7 @@ void cities_add_from_files(Cities* _Cities) {
       networkhandler_dispose(nh);
 
       char name[50];
-      strcpy(name, parsedata_get_string(root, "name"));
+      snprintf(name, sizeof(name), "%s", parsedata_get_string(root, "name"));
       double lat = parsedata_get_double(root, "latitude");
       double lon = parsedata_get_double(root, "longitude");
       if (cities_add(_Cities, name, lat, lon, NULL) != 0) {

@@ -8,9 +8,9 @@
 void func(int sockfd)
 {
     Cities cities;
-    cities_init(&cities); // initiera bara en gång
-
+    cities_init(&cities);
     printf("🌤️  Welcome!\n");
+
     printf("Please select a city from the list below to get a weather report:\n");
 
     char buffer[1024];
@@ -29,8 +29,6 @@ void func(int sockfd)
             printf("👋 Goodbye!\n");
             break;
         }
-
-        
         write(sockfd, buffer, strlen(buffer));
 
         bzero(buffer, sizeof(buffer));

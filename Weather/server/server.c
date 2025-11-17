@@ -1,3 +1,17 @@
+#include <stdio.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include "../includes/meteo.h"
+#include "../includes/cities.h"
+#include "../includes/city.h"
+#include "../includes/parsedata.h"
+#include "../includes/networkhandler.h"
+#include "../includes/utils.h"
 #include "server.h"
 
 void faktan(const char *cityName, char *response, size_t size) {
@@ -24,11 +38,11 @@ void func_server(int connfd)
         cityName[strcspn(cityName, "\n")] = '\0';
 
         // Exit check
-        if (strncmp(cityName, "exit", 4) == 0) {
+        if (strncmp(cityName, "quit", 4) == 0) {
             printf("Server Exit...\n");
             break;
         }
-
+        
         // Generate the response using helper
         faktan(cityName, response, sizeof(response));
 
@@ -56,7 +70,7 @@ void start_server(void)
 
     bzero(&servaddr, sizeof(servaddr));
 
-    // Tilldela IP och port
+
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
     servaddr.sin_port = htons(PORT);

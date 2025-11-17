@@ -104,11 +104,15 @@ int utils_create_folder(const char* _Path) {
 	return 0;
 }
 
-int utils_compare_time(char* _Filename, char* _Path, int _Interval){
-  char filepath[60];
-  sprintf(filepath, "%s/%s.json",_Path, _Filename);
+int utils_compare_time(char* _Filename, char* _Path, int _Interval) {
+    if (_Filename == NULL || _Path == NULL) {
+        return -1;
+    }
 
-	struct stat file_info;
+    char filepath[60];
+    snprintf(filepath, sizeof(filepath), "%s/%s.json", _Path, _Filename);
+
+    struct stat file_info;
     if (stat(filepath, &file_info) == -1) {
         perror("stat");
         return -1;
@@ -118,54 +122,59 @@ int utils_compare_time(char* _Filename, char* _Path, int _Interval){
     double diff = difftime(now, file_info.st_mtime);
 
     if (diff < _Interval) { 
-      return 0;
+        return 0;   /* filen är "ny" nog */
     } else { 
-      return 1;
+        return 1;   /* filen är för gammal */
     }
 }
 
-char* utils_hash_url(char* _URL){
-  unsigned int i;
+char* utils_hash_url(char* _URL) {
+    if (_URL == NULL) {
+        return NULL;
+    }
 
-  unsigned char digest[EVP_MAX_MD_SIZE]; /* Allocate buffer for all functions */
-  unsigned int digest_len; /* Actual length in bytes of final hash*/
+    unsigned int i;
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int digest_len = 0;
 
-  EVP_MD_CTX *ctx = EVP_MD_CTX_new(); /*OBject that saves state, hashing algoritm etc*/
-  if (!ctx) {
-      fprintf(stderr, "Could not create EVP_MD_CTX\n");
-      return NULL;
-  }
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    if (!ctx) {
+        fprintf(stderr, "Could not create EVP_MD_CTX\n");
+        return NULL;
+    }
 
-  if (EVP_DigestInit_ex(ctx, EVP_md5(), NULL) != 1) { /*Sets MD5 as algoritm for ctx object*/
-      fprintf(stderr, "EVP_DigestInit_ex failed\n");
-      EVP_MD_CTX_free(ctx);
-      return NULL;
-  }
+    if (EVP_DigestInit_ex(ctx, EVP_md5(), NULL) != 1) {
+        fprintf(stderr, "EVP_DigestInit_ex failed\n");
+        EVP_MD_CTX_free(ctx);
+        return NULL;
+    }
 
-  if (EVP_DigestUpdate(ctx, _URL, strlen(_URL)) != 1) { /*Inputs the bytes from text to ctx object*/
-      fprintf(stderr, "EVP_DigestUpdate failed\n");
-      EVP_MD_CTX_free(ctx);
-      return NULL;
-  }
+    if (EVP_DigestUpdate(ctx, _URL, strlen(_URL)) != 1) {
+        fprintf(stderr, "EVP_DigestUpdate failed\n");
+        EVP_MD_CTX_free(ctx);
+        return NULL;
+    }
 
-  if (EVP_DigestFinal_ex(ctx, digest, &digest_len) != 1) { /*Finalizes data transfer and fills digest buffer with bytes (16for md5)*/
-      fprintf(stderr, "EVP_DigestFinal_ex failed\n");
-      EVP_MD_CTX_free(ctx);
-      return NULL;
-  }
+    if (EVP_DigestFinal_ex(ctx, digest, &digest_len) != 1) {
+        fprintf(stderr, "EVP_DigestFinal_ex failed\n");
+        EVP_MD_CTX_free(ctx);
+        return NULL;
+    }
 
-  EVP_MD_CTX_free(ctx); /*Free ctx object so it doesnt leak*/
+    EVP_MD_CTX_free(ctx);
 
-  char* md5_string = (char*)malloc(digest_len * 2 + 1);
-   /*cReate buffer for hashed string*/
-  
-  for (i = 0; i < digest_len; i++) { /*Convert to hex*/
-      sprintf(&md5_string[i*2], "%02x", digest[i]);
-  }
-  md5_string[digest_len * 2] = '\0';
+    char* md5_string = (char*)malloc(digest_len * 2 + 1);
+    if (md5_string == NULL) {
+        fprintf(stderr, "malloc failed in utils_hash_url\n");
+        return NULL;
+    }
 
-  
-  return md5_string; /* Needs to be freed by caller*/
+    for (i = 0; i < digest_len; i++) {
+        snprintf(&md5_string[i * 2], 3, "%02x", digest[i]);
+    }
+    md5_string[digest_len * 2] = '\0';
+
+    return md5_string; /* Needs to be freed by caller */
 }
 
 int utils_strcasecmp(char* _StringOne, char* _StringTwo) {

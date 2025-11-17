@@ -1,17 +1,12 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "../includes/cities.h"
 #include "../includes/utils.h"
 #include "../includes/meteo.h"
 #include "../includes/city.h"
 #include "../includes/cache.h"
 #include "../includes/parsedata.h"
-
-/*-------------Internal function definitions----------------*/
-
-
-/*--------------------------------------------------------*/
-
 
 int city_init(char* _Name, double _Latitude, double _Longitude, City** _CityPtr) {
 	if(_Name == NULL || _CityPtr == NULL) {
@@ -39,12 +34,16 @@ int city_init(char* _Name, double _Latitude, double _Longitude, City** _CityPtr)
   _City->prev = NULL;
 
 
-  char* json_str;
-  char* hashed_name;
-  char filepath[50];
-  sprintf(filepath, "%s%f%f", _Name, _Latitude, _Longitude); /*creates base for filename citylatlon*/
-  hashed_name = utils_hash_url(filepath); /*Hashed filename with md5 hash*/
+  char filepath[128];
+snprintf(filepath, sizeof(filepath), "%s%f%f", _Name, _Latitude, _Longitude);
 
+char* hashed_name = utils_hash_url(filepath);
+if (hashed_name == NULL) {
+    city_dispose(_City);
+    return -1;
+}
+
+char* json_str = NULL;
 
   cJSON* root = cJSON_CreateObject(); /*Creates cJSON root object*/
   if (root == NULL) {
@@ -91,8 +90,8 @@ int city_get_info(Cities* _Cities) {
     
   char* user_input = NULL;
   if (utils_get_user_input(&user_input) != 0) {
-    free(user_input);
     printf("Please try again\n");
+    return -1;
     }
 
   City* user_city = NULL;
@@ -136,20 +135,20 @@ int city_add_from_api(char* _CityName, Cities* _Cities) {
   }
 
    /*Create copy and replace swedish characters to enable case insensitive search*/
-    char name_copy[128];
-    strcpy(name_copy, _CityName);
-    name_copy[sizeof(name_copy) - 1] = '\0';
-    utils_replace_swedish_chars(name_copy);
+  char name_copy[128];
+  snprintf(name_copy, sizeof(name_copy), "%s", _CityName);
+  utils_replace_swedish_chars(name_copy);
+
 
   cJSON* root = NULL; /*Create cJSON root object*/
   root = meteo_get_city_data(name_copy); /*Get city data from Meteo*/
   if (root == NULL) {
     printf("Failed to get city data from API\n");
-    cJSON_Delete(root);
     return -1;
   }
 
-  double latitude, longitude = 0.0f; /*Initialize name, lat, lon*/
+  double latitude = 0.0; 
+  double longitude = 0.0; /*Initialize name, lat, lon*/
   char name[50];
   cJSON* item = NULL;
 
@@ -164,7 +163,13 @@ int city_add_from_api(char* _CityName, Cities* _Cities) {
       }
   }
 
-  strcpy(name, parsedata_get_string(item, "name"));
+  if (item == NULL) {
+    printf("No city data available\n\n");
+    cJSON_Delete(root);
+    return -1;
+}
+
+  snprintf(name, sizeof(name), "%s", parsedata_get_string(item, "name"));
   latitude = parsedata_get_double(item, "latitude");
   longitude = parsedata_get_double(item, "longitude");
   if (latitude == 0.0f && longitude == 0.0f) {
