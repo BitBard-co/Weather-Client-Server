@@ -11,6 +11,9 @@
 #include "http_server.h"
 
 #define BUFFER_SIZE 8192
+static void handle_client(int client_fd);
+static void send_json(int client_fd, const char *json, int status);
+static char *get_query_value(const char *request, const char *key);
 
 void http_server_start(int port) {
     int server_fd;

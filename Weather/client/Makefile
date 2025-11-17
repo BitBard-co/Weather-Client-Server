@@ -10,7 +10,7 @@ BUILD_PROJ = $(BUILD_DIR)/projekt
 
 # Source files
 CLIENT_SRC = weather_client.c
-PROJ_SRCS = ../projekt/cache.c ../projekt/cities.c ../projekt/city.c ../projekt/http.c ../projekt/meteo.c ../projekt/networkhandler.c ../projekt/parsedata.c ../projekt/utils.c
+PROJ_SRCS = ../projekt/cache.c ../projekt/cities.c ../projekt/city.c ../projekt/http_server.c ../projekt/http_client.c ../projekt/networkhandler.c ../projekt/parsedata.c ../projekt/utils.c
 CJSON_SRC = cJSON.c
 
 # 🔹 Lägg till Homebrew OpenSSL-sökväg
