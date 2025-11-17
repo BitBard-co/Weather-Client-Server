@@ -9,7 +9,7 @@ BUILD_DIR = build
 BUILD_PROJ = $(BUILD_DIR)/projekt
 
 # Source files
-CLIENT_SRC = client.c
+CLIENT_SRC = weather_client.c
 PROJ_SRCS = ../projekt/cache.c ../projekt/cities.c ../projekt/city.c ../projekt/http.c ../projekt/meteo.c ../projekt/networkhandler.c ../projekt/parsedata.c ../projekt/utils.c
 CJSON_SRC = cJSON.c
 

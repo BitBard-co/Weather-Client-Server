@@ -10,6 +10,19 @@ void meteo_print_weatherdata(MeteoWeatherData* _MWD);
 void meteo_print_full_weatherdata(MeteoWeatherData* _MWD);
 void meteo_dispose(Meteo* _Meteo);
 
+char* weather_server_get_json(double lat, double lon, const char *name) {
+    char *json = NULL;
+    if (meteo_get_weather_data(lat, lon, (char*)name) != 0)
+        return utils_strdup("{\"error\":\"weather fetch failed\"}");
+
+    // Here, meteo_get_weather_data prints to terminal and returns no JSON,
+    // so you need to modify it to return JSON OR implement JSON building here.
+    // For now, we return a simple response:
+    char *result = malloc(256);
+    sprintf(result, "{\"city\":\"%s\",\"lat\":%.4f,\"lon\":%.4f}", name, lat, lon);
+    return result;
+}
+
 /*----------------------------------------------------*/
 int meteo_get_weather_data(double _Latitude, double _Longitude, char* _CityName) {
   char url[150];
