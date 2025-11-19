@@ -123,6 +123,58 @@ Note: Like the server, this is a demo not wired to `main`. Create a tiny runner 
 
 ---
 
+## HTTP server mode (serve Weather over HTTP)
+
+This repository also includes a minimal HTTP server that exposes the Weather functionality over simple HTTP endpoints. The server reuses the same Cities/Network/Weather modules and returns JSON.
+
+Endpoints (GET):
+
+- `/health` → `{ "status": "ok" }`
+- `/cities` → `[...]` array of city names loaded by the server
+- `/weather?city=<Name>` → raw Open‑Meteo JSON for the requested city (server adds the city via API if missing and caches results)
+
+Build and run (WSL recommended):
+
+- If your shell is inside the `Weather/` folder:
+
+```bash
+make -C server http           # build HTTP server binary at server/server_http
+make -C server http-run       # run from repo root so relative paths (cache/, cities/) work
+```
+
+- If your shell is one level above (the repo root containing `Weather/`):
+
+```bash
+make -C Weather/server http
+make -C Weather/server http-run
+```
+
+Notes:
+
+- Port: default is `8080`. If that port is in use (e.g., the TCP chat demo is still running), either stop it or run the HTTP server on another port:
+
+```bash
+./server/server_http 18080    # run from repo root (inside Weather/)
+```
+
+- Test from WSL (use `curl` inside WSL rather than PowerShell’s curl alias):
+
+```bash
+curl -v http://127.0.0.1:8080/health
+curl -s http://127.0.0.1:8080/cities | jq .
+curl -s "http://127.0.0.1:8080/weather?city=Stockholm" | jq .
+```
+
+- Troubleshooting quick checks (WSL):
+
+```bash
+ss -lntp | grep -E '8080|18080'   # see which process is listening
+```
+
+If you see the old chat server on 8080 and get no HTTP response, stop it (Ctrl+C) or use a different port for the HTTP server (e.g., 18080).
+
+---
+
 ## Project layout
 
 ```
