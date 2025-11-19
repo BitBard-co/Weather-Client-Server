@@ -16,8 +16,13 @@
 #include "../includes/meteo.h"
 #include "../src/libs/cJSON/cJSON.h"
 
-#define HTTP_PORT 8080
+#define HTTP_PORT 22 /* Default now set to 22 to match router forward (external 10722 -> internal 22) */
 #define REQ_BUF_SIZE 8192
+
+typedef struct {
+    char addr[64];
+    int port;
+} ServerConfig;
 
 static void send_response(int fd, int status, const char* status_text, const char* content_type, const char* body) {
     char header[512];
@@ -211,16 +216,36 @@ static void handle_connection(int fd) {
     }
 }
 
-int main(int argc, char** argv) {
-    int port = HTTP_PORT;
-    if (argc >= 2) {
-        port = atoi(argv[1]);
-        if (port <= 0) port = HTTP_PORT;
+static void parse_args(int argc, char** argv, ServerConfig* cfg) {
+    snprintf(cfg->addr, sizeof(cfg->addr), "%s", "0.0.0.0");
+    cfg->port = HTTP_PORT;
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "--port") == 0 && i + 1 < argc) {
+            int p = atoi(argv[++i]);
+            if (p > 0 && p < 65536) cfg->port = p;
+        } else if ((strcmp(argv[i], "--addr") == 0 || strcmp(argv[i], "--bind") == 0) && i + 1 < argc) {
+            snprintf(cfg->addr, sizeof(cfg->addr), "%s", argv[++i]);
+        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            printf("Usage: %s [--addr IP] [--port PORT]\n", argv[0]);
+            exit(0);
+        } else if (argv[i][0] != '\0' && argv[i][0] != '-') {
+            /* Positional: treat as port if numeric */
+            int p = atoi(argv[i]);
+            if (p > 0) cfg->port = p;
+        }
     }
+    const char* env_port = getenv("SERVER_PORT");
+    if (env_port) {
+        int p = atoi(env_port); if (p > 0 && p < 65536) cfg->port = p;
+    }
+    const char* env_addr = getenv("SERVER_ADDR");
+    if (env_addr && *env_addr) {
+        snprintf(cfg->addr, sizeof(cfg->addr), "%s", env_addr);
+    }
+}
 
-    /* Ensure relative paths match repo root expectations if run from server/ */
-    /* Optional: try chdir("..") if cache/cities not found here */
-    /* utils_create_folder will create if missing; no fatal if separate */
+int main(int argc, char** argv) {
+    ServerConfig cfg; parse_args(argc, argv, &cfg);
 
     int s = socket(AF_INET, SOCK_STREAM, 0);
     if (s < 0) { perror("socket"); return 1; }
@@ -231,8 +256,15 @@ int main(int argc, char** argv) {
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    addr.sin_port = htons(port);
+    if (strcmp(cfg.addr, "0.0.0.0") == 0 || strcmp(cfg.addr, "*") == 0) {
+        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    } else {
+        if (inet_aton(cfg.addr, &addr.sin_addr) == 0) {
+            fprintf(stderr, "Invalid bind address '%s'\n", cfg.addr);
+            close(s); return 1;
+        }
+    }
+    addr.sin_port = htons(cfg.port);
 
     if (bind(s, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
         perror("bind");
@@ -244,7 +276,7 @@ int main(int argc, char** argv) {
         close(s);
         return 1;
     }
-    printf("HTTP server listening on port %d\n", port);
+    printf("HTTP server listening on %s:%d\n", cfg.addr, cfg.port);
 
     for (;;) {
         struct sockaddr_in cli;

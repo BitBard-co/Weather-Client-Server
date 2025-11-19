@@ -205,11 +205,14 @@ Minimal copy/paste sequence in WSL to build and run both components:
 ```bash
 cd /mnt/c/Academy/Main_project/Weather-Client-Server/Weather
 
-# Build HTTP server
+# Build HTTP server (default internal port now 22)
 make -C server http
 
-# (Optional) pick a free port if 8080 is busy (e.g. 18080)
-./server/server_http 18080
+# Run on port 22 (matches router forward external 10722 -> internal 22)
+sudo ./server/server_http
+
+# Alternate port example (keep 8080 free or use 18080)
+./server/server_http --port 18080
 ```
 
 Open a second terminal for the client:
@@ -220,16 +223,12 @@ make           # build client (uses libcurl + cJSON)
 ./client http://127.0.0.1:18080  # interactively list cities and fetch weather
 ```
 
-If you prefer default port 8080:
-```bash
-./server/server_http        # starts on 8080
-./client/client http://127.0.0.1:8080
-```
+Default without flags now binds to 22; to target a different port pass --port.
 
 Troubleshooting quick checks:
 ```bash
-ss -lntp | grep -E ':8080|:18080'   # verify server listening
-curl -s http://127.0.0.1:18080/health || echo 'down'
+ss -lntp | grep -E ':22|:18080'     # verify server listening
+curl -s http://127.0.0.1:22/health || echo 'down'
 ```
 
 Cleaning build artifacts and caches:
@@ -240,6 +239,8 @@ rm -rf cache/* cities/*.json   # optional: reset cached weather & city data
 ```
 
 Swedish characters: you can type names with å/ä/ö directly (e.g. `Malmö`, `Gävle`). The client & server normalize them internally; if a city is new, it is added on first successful lookup.
+
+Router forward example (existing rule external 10722 → internal 192.168.1.210:22): with the server on port 22 it will be reachable at `http://<public_ip>:10722/health`.
 
 ---
 
