@@ -9,6 +9,40 @@ Both parts live in the same codebase. The compiled binary from the provided Make
 
 ---
 
+## Quick Summary: Run HTTP Server & Client
+
+Default HTTP server port: **22** (chosen to match router forward external 10722 → internal 22). Requires `sudo`.
+
+WSL steps:
+```bash
+cd /mnt/c/Academy/Main_project/Weather-Client-Server/Weather
+make -C server http          # build server
+sudo ./server/server_http    # listens on 0.0.0.0:22
+```
+Test locally:
+```bash
+curl -s http://127.0.0.1:22/health
+curl -s http://127.0.0.1:22/cities | jq .
+curl -s "http://127.0.0.1:22/weather?city=Stockholm" | jq .
+```
+Client:
+```bash
+make -C client               # build client
+./client http://127.0.0.1:22  # interactive
+```
+Alternate port (if you don’t want 22):
+```bash
+sudo ./server/server_http --port 18080
+./client http://127.0.0.1:18080
+```
+External test (router forward active):
+```bash
+curl http://<public_ip>:10722/health
+```
+Swedish names (å ä ö) can be typed directly (e.g. Malmö, Gävle, Västerås).
+
+---
+
 ## Contents
 
 - What the Weather app does
