@@ -175,6 +175,121 @@ If you see the old chat server on 8080 and get no HTTP response, stop it (Ctrl+C
 
 ---
 
+### HTTP client (interactive)
+
+Build and run the interactive client that talks to the HTTP server:
+
+```bash
+make -C client         # build
+make -C client run     # runs against http://127.0.0.1:8080 by default
+```
+
+You can point it to a different server/port by passing the base URL:
+
+```bash
+./client/client http://127.0.0.1:18080
+```
+
+Behavior:
+
+- Lists cities from the server (`GET /cities`).
+- Prompts for a city name, then fetches weather via the server (`GET /weather?city=...`).
+- If the server isn’t reachable, it prints: `Not connected to HTTP server`.
+
+---
+
+### Run HTTP Server & Client (Quick)
+
+Minimal copy/paste sequence in WSL to build and run both components:
+
+```bash
+cd /mnt/c/Academy/Main_project/Weather-Client-Server/Weather
+
+# Build HTTP server
+make -C server http
+
+# (Optional) pick a free port if 8080 is busy (e.g. 18080)
+./server/server_http 18080
+```
+
+Open a second terminal for the client:
+
+```bash
+cd /mnt/c/Academy/Main_project/Weather-Client-Server/Weather/client
+make           # build client (uses libcurl + cJSON)
+./client http://127.0.0.1:18080  # interactively list cities and fetch weather
+```
+
+If you prefer default port 8080:
+```bash
+./server/server_http        # starts on 8080
+./client/client http://127.0.0.1:8080
+```
+
+Troubleshooting quick checks:
+```bash
+ss -lntp | grep -E ':8080|:18080'   # verify server listening
+curl -s http://127.0.0.1:18080/health || echo 'down'
+```
+
+Cleaning build artifacts and caches:
+```bash
+make -C server clean
+make -C client clean
+rm -rf cache/* cities/*.json   # optional: reset cached weather & city data
+```
+
+Swedish characters: you can type names with å/ä/ö directly (e.g. `Malmö`, `Gävle`). The client & server normalize them internally; if a city is new, it is added on first successful lookup.
+
+---
+
+### Managing the HTTP server process & freeing ports
+
+If you see `bind: Address already in use` when starting `server_http`, it means something is already listening on that port.
+
+Common operations (WSL / Linux):
+
+List what is listening on port 8080 or 18080:
+```bash
+ss -lntp | grep -E ':8080|:18080'
+```
+Example output fragment: `users:(("server_http",pid=2807,fd=3))` — here the PID is `2807`.
+
+Stop by process name:
+```bash
+pkill -f server_http
+```
+
+Stop by PID (precise):
+```bash
+PID=$(ss -lntp | awk '/:18080/{match($0,/pid=([0-9]+)/,m); if(m[1]) print m[1]}')
+[ -n "$PID" ] && kill "$PID"    # graceful
+[ -n "$PID" ] && kill -9 "$PID" # force if still present after a few seconds
+```
+
+Run the server on an alternative port if 8080 is busy:
+```bash
+./server/server_http 18080
+```
+
+Run in background and verify:
+```bash
+nohup ./server/server_http 18080 > /tmp/server_http.log 2>&1 & disown
+ss -lntp | grep 18080 || echo "port free or server failed"
+```
+
+Tail recent server logs (when started with `nohup`):
+```bash
+tail -n 50 /tmp/server_http.log
+```
+
+After stopping, confirm the port is free:
+```bash
+ss -lntp | grep 18080 || echo "port free"
+```
+
+---
+
 ## Project layout
 
 ```

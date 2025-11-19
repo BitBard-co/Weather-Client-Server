@@ -51,6 +51,17 @@ static int urldecode_inplace(char* s) {
     return 0;
 }
 
+static void trim_inplace(char* s) {
+    if (!s) return;
+    char* start = s;
+    while (*start && isspace((unsigned char)*start)) start++;
+    char* end = s + strlen(s);
+    while (end > start && isspace((unsigned char)end[-1])) --end;
+    size_t len = (size_t)(end - start);
+    if (start != s) memmove(s, start, len);
+    s[len] = '\0';
+}
+
 static const char* get_query_param(const char* query, const char* key, char* out, size_t out_sz) {
     if (!query || !key || !out || out_sz == 0) return NULL;
     size_t keylen = strlen(key);
@@ -107,6 +118,9 @@ static void handle_weather(int fd, const char* query) {
         send_response(fd, 400, "Bad Request", "application/json", "{\"error\":\"missing city query param\"}");
         return;
     }
+    trim_inplace(city_param);
+    /* Debug: show raw incoming city parameter */
+    fprintf(stderr, "[weather] incoming city raw='%s'\n", city_param);
 
     Cities cities = {0};
     if (cities_init(&cities) != 0) {
@@ -115,13 +129,20 @@ static void handle_weather(int fd, const char* query) {
     }
 
     City* found = NULL;
-    if (cities_get(&cities, city_param, &found) != 0) {
-        /* Try add via API then look again */
-        if (city_add_from_api(city_param, &cities) != 0 || cities_get(&cities, city_param, &found) != 0) {
+    int first_lookup = cities_get(&cities, city_param, &found);
+    if (first_lookup != 0) {
+        fprintf(stderr, "[weather] initial lookup failed for '%s' -> attempting API add\n", city_param);
+        int add_rc = city_add_from_api(city_param, &cities);
+        fprintf(stderr, "[weather] city_add_from_api rc=%d for '%s'\n", add_rc, city_param);
+        int second_lookup = cities_get(&cities, city_param, &found);
+        fprintf(stderr, "[weather] second lookup rc=%d for '%s'\n", second_lookup, city_param);
+        if (add_rc != 0 || second_lookup != 0) {
             cities_dispose(&cities);
             send_response(fd, 404, "Not Found", "application/json", "{\"error\":\"city not found\"}");
             return;
         }
+    } else {
+        fprintf(stderr, "[weather] found existing city '%s' (lat=%.4f lon=%.4f)\n", found->name, (double)found->latitude, (double)found->longitude);
     }
 
     char url[256];
@@ -130,7 +151,9 @@ static void handle_weather(int fd, const char* query) {
              (double)found->latitude, (double)found->longitude);
 
     Meteo* m = NULL;
-    if (networkhandler_get_data(url, &m, FLAG_WRITE) != 0 || !m || !m->data) {
+    int net_rc = networkhandler_get_data(url, &m, FLAG_WRITE);
+    fprintf(stderr, "[weather] networkhandler_get_data rc=%d url='%s'\n", net_rc, url);
+    if (net_rc != 0 || !m || !m->data) {
         if (m) { free(m->data); free(m); }
         cities_dispose(&cities);
         send_response(fd, 502, "Bad Gateway", "application/json", "{\"error\":\"failed to fetch weather\"}");
@@ -139,6 +162,7 @@ static void handle_weather(int fd, const char* query) {
 
     /* Enrich with city name? Keep original JSON to stay faithful */
     send_response(fd, 200, "OK", "application/json; charset=utf-8", m->data);
+    fprintf(stderr, "[weather] served weather for '%s' (%s)\n", found->name, city_param);
 
     free(m->data);
     free(m);

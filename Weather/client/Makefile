@@ -13,7 +13,7 @@ CLIENT_SRC = client.c
 PROJ_SRCS = ../projekt/cache.c ../projekt/cities.c ../projekt/city.c ../projekt/http.c ../projekt/meteo.c ../projekt/networkhandler.c ../projekt/parsedata.c ../projekt/utils.c
 CJSON_SRC = cJSON.c
 
-# 🔹 Lägg till Homebrew OpenSSL-sökväg
+# 🔹 Optional: Homebrew OpenSSL on macOS (ignored on Linux)
 OPENSSL_PATH := /opt/homebrew/opt/openssl@3
 CFLAGS += -I$(OPENSSL_PATH)/include
 LDFLAGS += -L$(OPENSSL_PATH)/lib -lssl -lcrypto -lcurl
@@ -23,12 +23,6 @@ CLIENT_OBJ = $(BUILD_DIR)/client.o
 PROJ_OBJS = $(patsubst ../projekt/%.c,$(BUILD_PROJ)/%.o,$(PROJ_SRCS))
 CJSON_OBJ = $(BUILD_DIR)/cJSON.o
 
-
-# 🔹 Lägg till Homebrew OpenSSL-sökväg
-OPENSSL_PATH := /opt/homebrew/opt/openssl@3
-CFLAGS += -I$(OPENSSL_PATH)/include
-LDFLAGS += -L$(OPENSSL_PATH)/lib -lssl -lcrypto -lcurl
-å
 # Final executable
 TARGET = client
 

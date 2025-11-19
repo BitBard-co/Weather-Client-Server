@@ -198,22 +198,38 @@ void utils_replace_swedish_chars(char* _String) {
 
   while(*source) {
 
-    /*Check utf-8 sequences, first byte = source[0]*/
+    /* UTF-8 sequences (two bytes) */
     if(source[0] == 0xC3 && source[1] != '\0') { /* åäöÅÄÖ all start with C3 in utf-8 */
-      switch(source[1]) { /*check second byte*/
-        case 0xA5: /*å*/
-        case 0x85: /*Å*/
-        case 0xA4: /*ä*/
-        case 0x84: /*Ä*/
+      switch(source[1]) { /* second byte */
+        case 0xA5: /* å */
+        case 0x85: /* Å */
+        case 0xA4: /* ä */
+        case 0x84: /* Ä */
           *(destination)++ = 'a';
-          (source) += 2; /*If found we jump 2 bytes to the next char*/
+          source += 2;
           continue;
-        case 0xB6: /*ö*/
-        case 0x96: /*Ö*/
+        case 0xB6: /* ö */
+        case 0x96: /* Ö */
           *(destination)++ = 'o';
-          (source) += 2; /*If found we jump 2 bytes to the next char*/
+          source += 2;
           continue;
       }
+    }
+
+    /* Latin-1 single byte forms (common in Windows console / CP1252 input) */
+    switch(source[0]) {
+      case 0xE5: /* å */
+      case 0xC5: /* Å */
+      case 0xE4: /* ä */
+      case 0xC4: /* Ä */
+        *(destination)++ = 'a';
+        source++;
+        continue;
+      case 0xF6: /* ö */
+      case 0xD6: /* Ö */
+        *(destination)++ = 'o';
+        source++;
+        continue;
     }
 
     /* Handle combining marks that can appear after base letters (e.g., a + \u0308, A + \u030A) */
@@ -221,14 +237,12 @@ void utils_replace_swedish_chars(char* _String) {
       switch (source[1]) {
         case 0x88: /* \u0308 COMBINING DIAERESIS */
         case 0x8A: /* \u030A COMBINING RING ABOVE */
-          /* Skip combining mark entirely to normalize to base letter */
-          source += 2;
+          source += 2; /* skip mark */
           continue;
       }
     }
 
-    *(destination)++ = *(source)++; /*Copy current byte
-    multibyte chars will be copied over multiple iterations*/
+    *(destination)++ = *(source)++; /* copy byte */
   }
 
   *(destination) = '\0';

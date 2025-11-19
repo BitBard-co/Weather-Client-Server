@@ -140,52 +140,95 @@ int city_add_from_api(char* _CityName, Cities* _Cities) {
   utils_replace_swedish_chars(name_copy);
 
 
-  cJSON* root = NULL; /*Create cJSON root object*/
-  root = meteo_get_city_data(name_copy); /*Get city data from Meteo*/
+  cJSON* root = meteo_get_city_data(name_copy); /* first attempt (possibly ASCII-normalized) */
   if (root == NULL) {
-    printf("Failed to get city data from API\n");
+    printf("Failed to get city data from API (primary attempt)\n");
     return -1;
   }
 
-  double latitude = 0.0; 
-  double longitude = 0.0; /*Initialize name, lat, lon*/
-  char name[50];
-  cJSON* item = NULL;
+  /* If no usable item found, retry with the original (unmodified) spelling including diacritics */
+  int need_retry_with_original = 0;
+  do {
+    double latitude = 0.0; 
+    double longitude = 0.0; 
+    char name[50];
+    cJSON* item = NULL;
 
-  if (cJSON_IsArray(root) && cJSON_GetArraySize(root) > 0) { /*Check if root is an array and larger than 0*/
-      item = cJSON_GetArrayItem(root, 0); /*Set item to first "item" in root array*/
-  }
+    if (cJSON_IsArray(root) && cJSON_GetArraySize(root) > 0) {
+        item = cJSON_GetArrayItem(root, 0);
+    }
+    if (item == NULL && cJSON_IsObject(root)) {
+        cJSON *results = cJSON_GetObjectItemCaseSensitive(root, "results"); 
+        if (cJSON_IsArray(results) && cJSON_GetArraySize(results) > 0) {
+            item = cJSON_GetArrayItem(results, 0);
+        }
+    }
 
-  if (item == NULL && cJSON_IsObject(root)) { /*If root is an object not array*/
-      cJSON *results = cJSON_GetObjectItemCaseSensitive(root, "results"); 
-      if (cJSON_IsArray(results)) {
-          item = cJSON_GetArrayItem(results, 0); /*Set item to first item in results array*/
-      }
-  }
+    if (item == NULL) {
+      /* First pass yielded nothing; schedule retry with original diacritic form */
+      need_retry_with_original = (need_retry_with_original == 0);
+      break;
+    }
 
-  if (item == NULL) {
-    printf("No city data available\n\n");
+    snprintf(name, sizeof(name), "%s", parsedata_get_string(item, "name"));
+    latitude = parsedata_get_double(item, "latitude");
+    longitude = parsedata_get_double(item, "longitude");
+    if (latitude == 0.0f && longitude == 0.0f) {
+      need_retry_with_original = (need_retry_with_original == 0);
+      break;
+    }
+
+    if (cities_add(_Cities, name, latitude, longitude, NULL) != 0) {
+      cJSON_Delete(root);
+      return -1;
+    }
     cJSON_Delete(root);
-    return -1;
-}
+    return 0; /* success added */
+  } while (0);
 
-  snprintf(name, sizeof(name), "%s", parsedata_get_string(item, "name"));
-  latitude = parsedata_get_double(item, "latitude");
-  longitude = parsedata_get_double(item, "longitude");
-  if (latitude == 0.0f && longitude == 0.0f) {
-    printf("No city data available\n\n");
+  if (need_retry_with_original) {
     cJSON_Delete(root);
-    return -1;
+    /* Second attempt with the raw user spelling */
+    cJSON* retry_root = meteo_get_city_data(_CityName);
+    if (retry_root == NULL) {
+      printf("Second attempt failed for '%s'\n", _CityName);
+      return -1;
+    }
+    cJSON* item = NULL;
+    if (cJSON_IsArray(retry_root) && cJSON_GetArraySize(retry_root) > 0) {
+        item = cJSON_GetArrayItem(retry_root, 0);
+    }
+    if (item == NULL && cJSON_IsObject(retry_root)) {
+        cJSON *results = cJSON_GetObjectItemCaseSensitive(retry_root, "results"); 
+        if (cJSON_IsArray(results) && cJSON_GetArraySize(results) > 0) {
+            item = cJSON_GetArrayItem(results, 0);
+        }
+    }
+    if (item == NULL) {
+      cJSON_Delete(retry_root);
+      return -1;
+    }
+    double latitude = parsedata_get_double(item, "latitude");
+    double longitude = parsedata_get_double(item, "longitude");
+    char name[50];
+    snprintf(name, sizeof(name), "%s", parsedata_get_string(item, "name"));
+    if (latitude == 0.0f && longitude == 0.0f) {
+      cJSON_Delete(retry_root);
+      return -1;
+    }
+    if (cities_add(_Cities, name, latitude, longitude, NULL) != 0) {
+      cJSON_Delete(retry_root);
+      return -1;
+    }
+    cJSON_Delete(retry_root);
+    return 0;
   }
 
-  if (cities_add(_Cities, name, latitude, longitude, NULL) != 0) { /*Adds city to Cities list*/
-    cJSON_Delete(root);
-    return -1;
-  }
+  /* If we reached here without retry, original attempt failed in a way we handled */
+  return -1;
 
-  cJSON_Delete(root); /*Free root*/
-
-  return 0;
+  /* unreachable legacy block (logic moved above) */
+  return -1;
 
 }
 

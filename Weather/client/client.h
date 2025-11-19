@@ -1,22 +1,14 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
-#include <arpa/inet.h>
-#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h> // bzero()
-#include <sys/socket.h>
-#include <unistd.h>
-#include <netinet/in.h>
 
+#define DEFAULT_HTTP_BASE "http://127.0.0.1:8080"
 
-#define MAX 80
-#define PORT 8080
-#define SA struct sockaddr
+/* Run interactive HTTP client against server_http.
+ * base_url example: "http://127.0.0.1:8080" */
+void start_client_http(const char* base_url);
 
-// Funktioner
-void func(int sockfd);
-void start_client(void);
 #endif // CLIENT_H
