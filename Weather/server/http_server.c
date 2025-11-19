@@ -181,38 +181,89 @@ static void handle_connection(int fd) {
         return;
     }
     req[r] = '\0';
+    char* header_end = strstr(req, "\r\n\r\n");
+    size_t header_len = header_end ? (size_t)(header_end - req) : (size_t)r;
+    char* body_ptr = header_end ? (header_end + 4) : NULL;
 
-    /* Parse request line */
     char method[8] = {0}, target[1024] = {0};
     if (sscanf(req, "%7s %1023s", method, target) != 2) {
         send_response(fd, 400, "Bad Request", "text/plain", "Bad Request");
         return;
     }
-    if (strcmp(method, "GET") != 0) {
-        send_response(fd, 405, "Method Not Allowed", "text/plain", "Only GET supported");
+
+    if (strcmp(method, "GET") && strcmp(method, "POST")) {
+        send_response(fd, 405, "Method Not Allowed", "text/plain", "Only GET/POST supported");
         return;
     }
 
-    /* Split path and query */
     char path[1024] = {0};
     char* qmark = strchr(target, '?');
     if (qmark) {
-        size_t len = (size_t)(qmark - target);
-        if (len >= sizeof(path)) len = sizeof(path) - 1;
-        memcpy(path, target, len); path[len] = '\0';
-    } else {
-        snprintf(path, sizeof(path), "%s", target);
-    }
+        size_t len = (size_t)(qmark - target); if (len >= sizeof(path)) len = sizeof(path) - 1; memcpy(path, target, len); path[len] = '\0';
+    } else { snprintf(path, sizeof(path), "%s", target); }
     const char* query = qmark ? (qmark + 1) : NULL;
 
-    if (strcmp(path, "/health") == 0) {
-        handle_health(fd);
-    } else if (strcmp(path, "/cities") == 0) {
-        handle_cities(fd);
+    long content_length = 0;
+    if (strstr(method, "POST")) {
+        const char* cl = strcasestr(req, "Content-Length:");
+        if (cl) {
+            cl += 15; while (*cl == ' ' || *cl == '\t') cl++; content_length = strtol(cl, NULL, 10);
+            if (content_length < 0 || content_length > 32768) { content_length = 0; }
+        }
+        size_t body_have = body_ptr ? (size_t)(r - (body_ptr - req)) : 0;
+        while (body_have < (size_t)content_length && body_have < 32768) {
+            ssize_t more = recv(fd, req + r, sizeof(req) - 1 - r, 0);
+            if (more <= 0) break; r += more; req[r] = '\0'; body_have = body_ptr ? (size_t)(r - (body_ptr - req)) : 0;
+        }
+    }
+
+    if (strcmp(method, "GET") == 0) {
+        if (strcmp(path, "/health") == 0) {
+            handle_health(fd);
+        } else if (strcmp(path, "/cities") == 0) {
+            handle_cities(fd);
+        } else if (strcmp(path, "/weather") == 0) {
+            handle_weather(fd, query);
+        } else {
+            send_response(fd, 404, "Not Found", "application/json", "{\"error\":\"not found\"}");
+        }
+        return;
+    }
+
+    /* POST handlers */
+    if (!body_ptr) { send_response(fd, 400, "Bad Request", "application/json", "{\"error\":\"missing body\"}"); return; }
+    size_t body_len = (size_t)(r - (body_ptr - req));
+    char* body_json = (char*)malloc(body_len + 1); if (!body_json) { send_response(fd, 500, "Internal Server Error", "application/json", "{\"error\":\"oom\"}"); return; }
+    memcpy(body_json, body_ptr, body_len); body_json[body_len] = '\0';
+    cJSON* root = cJSON_Parse(body_json);
+    if (!root) { free(body_json); send_response(fd, 400, "Bad Request", "application/json", "{\"error\":\"invalid json\"}"); return; }
+
+    if (strcmp(path, "/city") == 0) {
+        cJSON* nameItem = cJSON_GetObjectItemCaseSensitive(root, "name");
+        if (!cJSON_IsString(nameItem) || !nameItem->valuestring) {
+            cJSON_Delete(root); free(body_json); send_response(fd, 400, "Bad Request", "application/json", "{\"error\":\"missing name\"}"); return;
+        }
+        const char* cityName = nameItem->valuestring;
+        Cities cities = {0}; if (cities_init(&cities) != 0) { cJSON_Delete(root); free(body_json); send_response(fd, 500, "Internal Server Error", "application/json", "{\"error\":\"cities_init failed\"}"); return; }
+        City* found = NULL;
+        if (cities_get(&cities, (char*)cityName, &found) == 0) {
+            cJSON* resp = cJSON_CreateObject(); cJSON_AddStringToObject(resp, "name", found->name); cJSON_AddNumberToObject(resp, "latitude", found->latitude); cJSON_AddNumberToObject(resp, "longitude", found->longitude); char* out = cJSON_PrintUnformatted(resp); send_response(fd, 200, "OK", "application/json", out); cJSON_free(out); cJSON_Delete(resp); cities_dispose(&cities); cJSON_Delete(root); free(body_json); return;
+        }
+        if (city_add_from_api((char*)cityName, &cities) != 0 || cities_get(&cities, (char*)cityName, &found) != 0) {
+            cities_dispose(&cities); cJSON_Delete(root); free(body_json); send_response(fd, 404, "Not Found", "application/json", "{\"error\":\"city not found\"}"); return;
+        }
+        cJSON* resp = cJSON_CreateObject(); cJSON_AddStringToObject(resp, "name", found->name); cJSON_AddNumberToObject(resp, "latitude", found->latitude); cJSON_AddNumberToObject(resp, "longitude", found->longitude); char* out = cJSON_PrintUnformatted(resp); send_response(fd, 201, "Created", "application/json", out); cJSON_free(out); cJSON_Delete(resp); cities_dispose(&cities); cJSON_Delete(root); free(body_json); return;
     } else if (strcmp(path, "/weather") == 0) {
-        handle_weather(fd, query);
+        cJSON* cityItem = cJSON_GetObjectItemCaseSensitive(root, "city");
+        if (!cJSON_IsString(cityItem) || !cityItem->valuestring) { cJSON_Delete(root); free(body_json); send_response(fd, 400, "Bad Request", "application/json", "{\"error\":\"missing city\"}"); return; }
+        char city_param[256]; snprintf(city_param, sizeof(city_param), "%s", cityItem->valuestring); trim_inplace(city_param);
+        Cities cities = {0}; if (cities_init(&cities) != 0) { cJSON_Delete(root); free(body_json); send_response(fd, 500, "Internal Server Error", "application/json", "{\"error\":\"cities_init failed\"}"); return; }
+        City* found = NULL; if (cities_get(&cities, city_param, &found) != 0) { if (city_add_from_api(city_param, &cities) != 0 || cities_get(&cities, city_param, &found) != 0) { cities_dispose(&cities); cJSON_Delete(root); free(body_json); send_response(fd, 404, "Not Found", "application/json", "{\"error\":\"city not found\"}"); return; } }
+        char url[256]; snprintf(url, sizeof(url), "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&current_weather=true", (double)found->latitude, (double)found->longitude);
+        Meteo* m = NULL; int net_rc = networkhandler_get_data(url, &m, FLAG_WRITE); if (net_rc != 0 || !m || !m->data) { if (m) { free(m->data); free(m);} cities_dispose(&cities); cJSON_Delete(root); free(body_json); send_response(fd, 502, "Bad Gateway", "application/json", "{\"error\":\"failed to fetch weather\"}"); return; }
+        send_response(fd, 200, "OK", "application/json; charset=utf-8", m->data); free(m->data); free(m); cities_dispose(&cities); cJSON_Delete(root); free(body_json); return;
     } else {
-        send_response(fd, 404, "Not Found", "application/json", "{\"error\":\"not found\"}");
+        cJSON_Delete(root); free(body_json); send_response(fd, 404, "Not Found", "application/json", "{\"error\":\"not found\"}"); return;
     }
 }
 

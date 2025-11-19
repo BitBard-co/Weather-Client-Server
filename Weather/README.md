@@ -41,6 +41,30 @@ curl http://<public_ip>:10722/health
 ```
 Swedish names (å ä ö) can be typed directly (e.g. Malmö, Gävle, Västerås).
 
+### POST Endpoints
+
+Additional JSON endpoints now supported:
+
+- `POST /city` body `{ "name": "Göteborg" }` – Adds (or returns existing) city; reply includes name, latitude, longitude.
+- `POST /weather` body `{ "city": "Stockholm" }` – Returns same weather JSON as `GET /weather?city=Stockholm`.
+
+Example (WSL bash):
+```bash
+curl -s -X POST -H "Content-Type: application/json" \
+  -d '{"name":"Göteborg"}' http://127.0.0.1:22/city | jq .
+
+curl -s -X POST -H "Content-Type: application/json" \
+  -d '{"city":"Stockholm"}' http://127.0.0.1:22/weather | jq .
+```
+
+If quoting is troublesome in PowerShell, create a file and post it:
+```bash
+echo '{"city":"Stockholm"}' > body.json
+curl -s -X POST -H "Content-Type: application/json" --data @body.json http://127.0.0.1:22/weather | jq .
+```
+
+Both GET and POST variants share internal logic (same caching, city auto-add via API).
+
 ---
 
 ## Contents
