@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DEFAULT_HTTP_BASE "http://127.0.0.1:8080"
+#define DEFAULT_HTTP_BASE "http://127.0.0.1:22"  /* Updated to match HTTP server new default port 22 */
 
 /* Run interactive HTTP client against server_http.
  * base_url example: "http://127.0.0.1:8080" */
