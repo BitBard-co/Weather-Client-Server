@@ -121,8 +121,89 @@ static void fetch_weather(const char* base_url, const char* city_name) {
         return;
     }
 
-    /* For now, print raw JSON response from server */
-    printf("\nWeather JSON for '%s':\n%s\n\n", city_name, body);
+    /* Pretty print current weather */
+    if (!body) {
+        printf("⚠️  Empty response.\n");
+        curl_easy_cleanup(curl);
+        return;
+    }
+
+    /* Parse JSON */
+    cJSON* root = cJSON_Parse(body);
+    if (!root) {
+        printf("\nWeather (raw) for '%s':\n%s\n", city_name, body);
+        free(body);
+        curl_easy_cleanup(curl);
+        return;
+    }
+
+    cJSON* cw = cJSON_GetObjectItemCaseSensitive(root, "current_weather");
+    cJSON* units = cJSON_GetObjectItemCaseSensitive(root, "current_weather_units");
+
+    /* Helper extraction */
+    double latitude = cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(root, "latitude"));
+    double longitude = cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(root, "longitude"));
+    double elevation = cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(root, "elevation"));
+    const char* tz = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, "timezone"));
+    const char* tz_abbr = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(root, "timezone_abbreviation"));
+
+    const char* time_str = cw ? cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(cw, "time")) : NULL;
+    double interval = cw ? cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(cw, "interval")) : 0;
+    double temp = cw ? cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(cw, "temperature")) : 0;
+    double windspeed = cw ? cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(cw, "windspeed")) : 0;
+    int winddir_deg = cw ? (int)cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(cw, "winddirection")) : 0;
+    int is_day = cw ? (int)cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(cw, "is_day")) : 0;
+    int weathercode = cw ? (int)cJSON_GetNumberValue(cJSON_GetObjectItemCaseSensitive(cw, "weathercode")) : -1;
+
+    const char* temp_unit = units ? cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(units, "temperature")) : "°C";
+    const char* ws_unit = units ? cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(units, "windspeed")) : "km/h";
+
+    /* Weather code mapping */
+    const char* desc = "Unknown"; const char* icon = "?";
+    switch (weathercode) {
+        case 0: desc = "Clear"; icon = "☀"; break;
+        case 1: case 2: desc = "Partly cloudy"; icon = "⛅"; break;
+        case 3: desc = "Overcast"; icon = "☁"; break;
+        case 45: case 48: desc = "Fog"; icon = "🌫"; break;
+        case 51: case 53: case 55: desc = "Drizzle"; icon = "🌦"; break;
+        case 56: case 57: desc = "Freezing drizzle"; icon = "🌨"; break;
+        case 61: case 63: case 65: desc = "Rain"; icon = "🌧"; break;
+        case 66: case 67: desc = "Freezing rain"; icon = "🧊🌧"; break;
+        case 71: case 73: case 75: desc = "Snow"; icon = "❄"; break;
+        case 77: desc = "Snow grains"; icon = "❄"; break;
+        case 80: case 81: case 82: desc = "Rain showers"; icon = "🌦"; break;
+        case 85: case 86: desc = "Snow showers"; icon = "🌨"; break;
+        case 95: desc = "Thunderstorm"; icon = "⛈"; break;
+        case 96: case 99: desc = "Thunderstorm hail"; icon = "⛈🧊"; break;
+        default: break;
+    }
+
+    /* Wind arrow */
+    const char* arrow = "↑"; /* Default N */
+    int sector = (int)((winddir_deg + 22.5) / 45.0) & 7; /* 0..7 */
+    switch (sector) {
+        case 0: arrow = "↑"; break; /* N */
+        case 1: arrow = "↗"; break; /* NE */
+        case 2: arrow = "→"; break; /* E */
+        case 3: arrow = "↘"; break; /* SE */
+        case 4: arrow = "↓"; break; /* S */
+        case 5: arrow = "↙"; break; /* SW */
+        case 6: arrow = "←"; break; /* W */
+        case 7: arrow = "↖"; break; /* NW */
+    }
+
+    const char* day_icon = is_day ? "🌞" : "🌜";
+
+    printf("\n──────────── Weather: %s ────────────\n", city_name);
+    printf("Location : %.4f, %.4f (elev %.0fm) TZ %s (%s)\n", latitude, longitude, elevation, tz ? tz : "?", tz_abbr ? tz_abbr : "?");
+    printf("Time     : %s (interval %.0f min)\n", time_str ? time_str : "?", interval / 60.0);
+    printf("Condition: %s %s (code %d)\n", icon, desc, weathercode);
+    printf("Temp     : 🌡 %.1f %s\n", temp, temp_unit);
+    printf("Wind     : 💨 %.1f %s %d° %s\n", windspeed, ws_unit, winddir_deg, arrow);
+    printf("Daylight : %s %s\n", day_icon, is_day ? "Day" : "Night");
+    printf("Raw JSON : (press 'r' next time to view full)\n\n");
+
+    cJSON_Delete(root);
     free(body);
     curl_easy_cleanup(curl);
 }
