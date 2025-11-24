@@ -191,9 +191,9 @@ static void fetch_weather(const char* base_url, const char* city_name) {
         case 6: arrow = "←"; break; /* W */
         case 7: arrow = "↖"; break; /* NW */
     }
-
     const char* day_icon = is_day ? "🌞" : "🌜";
 
+    /* Pretty summary */
     printf("\n──────────── Weather: %s ────────────\n", city_name);
     printf("Location : %.4f, %.4f (elev %.0fm) TZ %s (%s)\n", latitude, longitude, elevation, tz ? tz : "?", tz_abbr ? tz_abbr : "?");
     printf("Time     : %s (interval %.0f min)\n", time_str ? time_str : "?", interval / 60.0);
@@ -201,7 +201,13 @@ static void fetch_weather(const char* base_url, const char* city_name) {
     printf("Temp     : 🌡 %.1f %s\n", temp, temp_unit);
     printf("Wind     : 💨 %.1f %s %d° %s\n", windspeed, ws_unit, winddir_deg, arrow);
     printf("Daylight : %s %s\n", day_icon, is_day ? "Day" : "Night");
-    printf("Raw JSON : (press 'r' next time to view full)\n\n");
+
+    /* Full JSON view (formatted) */
+    char* pretty = cJSON_Print(root);
+    if (pretty) {
+        printf("\nFull JSON:\n%s\n\n", pretty);
+        cJSON_free(pretty);
+    }
 
     cJSON_Delete(root);
     free(body);
