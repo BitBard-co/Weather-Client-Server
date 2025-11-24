@@ -15,7 +15,11 @@ PROJ_SRCS = ../projekt/cache.c ../projekt/cities.c ../projekt/city.c \
             ../projekt/utils.c  ../projekt/weather_server.c
 CJSON_SRC = cJSON.c
 
+<<<<<<< HEAD
 # Homebrew OpenSSL
+=======
+# 🔹 Optional: Homebrew OpenSSL on macOS (ignored on Linux)
+>>>>>>> origin/shayan
 OPENSSL_PATH := /opt/homebrew/opt/openssl@3
 CFLAGS += -I$(OPENSSL_PATH)/include
 LDFLAGS += -L$(OPENSSL_PATH)/lib -lssl -lcrypto -lcurl
