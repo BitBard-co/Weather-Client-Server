@@ -47,19 +47,12 @@ run: $(TARGET)
 server:
 	$(MAKE) -C server
 
-client:
-	$(MAKE) -C client
-
 run-server: server
 	cd server && ./server
-
-run-client: client
-	cd client && ./client
 
 clean:
 	rm -rf $(BUILD_DIR) $(TARGET)
 	$(MAKE) -C server clean 2>/dev/null || true
-	$(MAKE) -C client clean 2>/dev/null || true
 
 clean-all: clean
 	rm -rf cache cities
@@ -68,10 +61,9 @@ help:
 	@echo "=== Weather build system ==="
 	@echo " make          - Build everything"
 	@echo " make run      - Build and run Weather"
-	@echo " make server   - Build TCP server"
-	@echo " make client   - Build TCP client"
+	@echo " make server   - Build TCP demo server"
 	@echo " make clean    - Remove build files"
 	@echo " make clean-all - Full cleanup including cache"
 	@echo "============================="
 
-.PHONY: all run server client run-server run-client clean clean-all help
+.PHONY: all run server run-server clean clean-all help

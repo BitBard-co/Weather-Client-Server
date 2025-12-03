@@ -37,16 +37,10 @@ curl -s http://127.0.0.1:22/health
 curl -s http://127.0.0.1:22/cities | jq .
 curl -s "http://127.0.0.1:22/weather?city=Stockholm" | jq .
 ```
-Client:
-```bash
-make -C client                      # build client
-./client                            # defaults to http://127.0.0.1:22
-```
 Alternate port (no sudo):
 ```bash
 make -C server http
-./server/server_http --port 18080   # now client must specify base URL
-./client http://127.0.0.1:18080
+./server/server_http --port 18080
 ```
 
 ---
@@ -88,14 +82,8 @@ pkill -f server_http
 ```
 
 ---
-## 6. Interactive Client
-```bash
-make -C client
-./client                 # uses DEFAULT_HTTP_BASE (port 22)
-./client http://127.0.0.1:18080   # override base URL
-```
-Loop: lists cities → prompt → fetch weather JSON.
-Failure message `Not connected to HTTP server` indicates connection refusal (server not listening / wrong port).
+## 6. Client (removed)
+The interactive client has been removed from this project. Use the curl examples in sections 3 and 7 to exercise the HTTP API, or add your own client later.
 
 ---
 ## 7. POST Examples
@@ -169,7 +157,6 @@ Uses Open‑Meteo APIs (free). Includes cJSON & libcurl; OpenSSL for MD5 hashing
 ```bash
 # Build server & client
 make -C server http
-make -C client
 
 # Run server (privileged)
 sudo ./server/server_http
@@ -180,10 +167,6 @@ sudo ./server/server_http
 # Test endpoints
 curl http://127.0.0.1:22/health
 curl "http://127.0.0.1:22/weather?city=Gävle"
-
-# Client interaction
-./client
-./client http://127.0.0.1:18080
 ```
 
 ---

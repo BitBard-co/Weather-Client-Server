@@ -35,7 +35,7 @@ HTTP_SRC := http_server.c \
 		 ../projekt/cache.c ../projekt/cities.c ../projekt/city.c \
 		 ../projekt/http.c ../projekt/meteo.c ../projekt/networkhandler.c \
 		 ../projekt/parsedata.c ../projekt/utils.c \
-		 ../client/cJSON.c
+		 ../src/libs/cJSON/cJSON.c
 
 http: $(HTTP_BIN)
 
