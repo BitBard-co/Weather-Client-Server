@@ -5,7 +5,7 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -g -std=c17 -Wno-deprecated-non-prototype
 INCLUDES = -I./includes -I./src/libs/cJSON -I/usr/include/x86_64-linux-gnu
-LDFLAGS = -lssl -lcrypto -lcurl
+LDFLAGS = -lssl -lcrypto
 
 # Directories
 SRC_DIR = projekt
@@ -22,15 +22,17 @@ OBJECTS := $(PROJECT_SOURCES:%.c=$(BUILD_DIR)/%.o)
 OBJECTS += $(CJSON_SOURCES:%.c=$(BUILD_DIR)/%.o)
 MAIN_OBJ := $(BUILD_DIR)/main.o
 
-# Target executable
+# Target executables
 TARGET = Weather
+SERVER_TARGET = WeatherServer
 
-all: $(TARGET)
+all: $(TARGET) $(SERVER_TARGET)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 	mkdir -p $(BUILD_DIR)/$(SRC_DIR)
 	mkdir -p $(BUILD_DIR)/$(CJSON_DIR)
+	mkdir -p $(BUILD_DIR)/Robinsfile
 
 $(TARGET): $(BUILD_DIR) $(MAIN_OBJ) $(OBJECTS)
 	$(CC) $(MAIN_OBJ) $(OBJECTS) $(LDFLAGS) -o $@
@@ -39,9 +41,28 @@ $(TARGET): $(BUILD_DIR) $(MAIN_OBJ) $(OBJECTS)
 $(BUILD_DIR)/%.o: %.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
+# Server build
+SERVER_SOURCE = server_main.c
+SERVER_OBJ := $(BUILD_DIR)/server_main.o
+ROBINS_SOURCES := Robinsfile/HTTPServer.c Robinsfile/HTTPServerConnection.c Robinsfile/TCPServer.c Robinsfile/TCPClient.c Robinsfile/smw.c
+ROBINS_OBJECTS := $(ROBINS_SOURCES:%.c=$(BUILD_DIR)/%.o)
+
+$(SERVER_TARGET): $(BUILD_DIR) $(SERVER_OBJ) $(OBJECTS) $(ROBINS_OBJECTS)
+	$(CC) $(SERVER_OBJ) $(OBJECTS) $(ROBINS_OBJECTS) $(LDFLAGS) -o $@
+
+$(BUILD_DIR)/Robinsfile/%.o: Robinsfile/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+$(BUILD_DIR)/server_main.o: server_main.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
 # Run program
 run: $(TARGET)
 	./$(TARGET)
+
+run-server: $(SERVER_TARGET)
+	./$(SERVER_TARGET)
 
 # Build subprojects (optional)
 server:
@@ -51,8 +72,8 @@ run-server: server
 	cd server && ./server
 
 clean:
-	rm -rf $(BUILD_DIR) $(TARGET)
-	$(MAKE) -C server clean 2>/dev/null || true
+	rm -rf $(BUILD_DIR) $(TARGET) $(SERVER_TARGET)
+ 
 
 clean-all: clean
 	rm -rf cache cities

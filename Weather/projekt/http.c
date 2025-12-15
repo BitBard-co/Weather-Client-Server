@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #include "../includes/networkhandler.h"
 #include "../includes/http.h"
 #include <stdio.h>
@@ -10,6 +11,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -68,7 +70,7 @@ static int parse_url(const char* url, url_parts* out) {
 
 static int connect_tcp(const char* host, const char* port) {
     struct addrinfo hints; memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
+    hints.ai_family = AF_INET; // Prefer IPv4 to match server binding
     hints.ai_socktype = SOCK_STREAM;
 
     struct addrinfo* res = NULL;
@@ -82,6 +84,11 @@ static int connect_tcp(const char* host, const char* port) {
         sock = (int)socket(it->ai_family, it->ai_socktype, it->ai_protocol);
         if (sock < 0) continue;
         if (connect(sock, it->ai_addr, (socklen_t)it->ai_addrlen) == 0) {
+            // Set simple send/recv timeouts to avoid hanging
+            struct timeval tv;
+            tv.tv_sec = 5; tv.tv_usec = 0;
+            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+            setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
             break;
         }
         close(sock);
@@ -97,6 +104,9 @@ static int connect_tcp(const char* host, const char* port) {
 
 static int ssl_read_all(SSL* ssl, NetworkHandler* nh) {
     char buf[4096];
+    // Simple inactivity timeout to avoid hanging forever
+    struct timeval start, now;
+    gettimeofday(&start, NULL);
     for (;;) {
         int n = SSL_read(ssl, buf, (int)sizeof buf);
         if (n > 0) {
@@ -107,11 +117,21 @@ static int ssl_read_all(SSL* ssl, NetworkHandler* nh) {
             memcpy(nh->data + nh->size, buf, (size_t)n);
             nh->size = newsize;
             nh->data[nh->size] = '\0';
+            // Reset start on progress
+            gettimeofday(&start, NULL);
         } else {
             int err = SSL_get_error(ssl, n);
             if (err == SSL_ERROR_ZERO_RETURN) break; /* clean shutdown */
-            if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) continue;
-            break;
+            if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+                // Check inactivity timeout (5 seconds)
+                gettimeofday(&now, NULL);
+                long ms = (now.tv_sec - start.tv_sec) * 1000L + (now.tv_usec - start.tv_usec) / 1000L;
+                if (ms > 5000) {
+                    return -1; // timeout
+                }
+                continue;
+            }
+            return -1;
         }
     }
     return 0;
@@ -133,10 +153,27 @@ static int tcp_read_all(int sock, NetworkHandler* nh) {
             break;
         } else {
             if (errno == EINTR) continue;
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                // Timeout reached; stop reading
+                break;
+            }
             return -1;
         }
     }
     return 0;
+}
+
+// Strip HTTP headers and leave only response body in nh->data
+static void strip_http_headers(NetworkHandler* nh)
+{
+    if (!nh || !nh->data) return;
+    const char* hdr_end = strstr(nh->data, "\r\n\r\n");
+    if (!hdr_end) return; // no headers found
+    const char* body = hdr_end + 4;
+    size_t body_len = nh->size - (size_t)(body - nh->data);
+    memmove(nh->data, body, body_len);
+    nh->size = body_len;
+    nh->data[nh->size] = '\0';
 }
 
 int http_api_request(char* _URL, NetworkHandler** _NhPtr) {
@@ -157,6 +194,7 @@ int http_api_request(char* _URL, NetworkHandler** _NhPtr) {
         return -1;
     }
 
+    fprintf(stderr, "[http] URL=%s host=%s port=%s path=%s tls=%d\n", _URL, parts.host, parts.port, parts.path, parts.use_tls);
     int sock = connect_tcp(parts.host, parts.port);
     if (sock < 0) { free(nh); return -1; }
 
@@ -188,11 +226,12 @@ int http_api_request(char* _URL, NetworkHandler** _NhPtr) {
         SSL_set_tlsext_host_name(ssl, parts.host);
         SSL_set_fd(ssl, sock);
         if (SSL_connect(ssl) <= 0) {
+            fprintf(stderr, "[http] SSL_connect failed\n");
             SSL_free(ssl); SSL_CTX_free(ctx); close(sock); free(nh); return -1;
         }
 
         int wn = SSL_write(ssl, req, req_len);
-        if (wn <= 0) { SSL_free(ssl); SSL_CTX_free(ctx); close(sock); free(nh); return -1; }
+        if (wn <= 0) { fprintf(stderr, "[http] SSL_write failed\n"); SSL_free(ssl); SSL_CTX_free(ctx); close(sock); free(nh); return -1; }
 
         rc = ssl_read_all(ssl, nh);
 
@@ -201,12 +240,16 @@ int http_api_request(char* _URL, NetworkHandler** _NhPtr) {
         SSL_CTX_free(ctx);
     } else {
         ssize_t wn = send(sock, req, (size_t)req_len, 0);
-        if (wn < 0) { close(sock); free(nh); return -1; }
+        if (wn < 0) { fprintf(stderr, "[http] send failed errno=%d\n", errno); close(sock); free(nh); return -1; }
         rc = tcp_read_all(sock, nh);
     }
 
     close(sock);
-    if (rc != 0) { free(nh); return -1; }
+    if (rc != 0) { fprintf(stderr, "[http] read failed rc=%d size=%zu\n", rc, nh->size); free(nh); return -1; }
+
+    // Normalize: remove HTTP headers so callers get pure JSON/text
+    strip_http_headers(nh);
+    fprintf(stderr, "[http] body_size=%zu preview=%.80s\n", nh->size, nh->data ? nh->data : "(null)");
 
     *(_NhPtr) = nh;
     return 0;

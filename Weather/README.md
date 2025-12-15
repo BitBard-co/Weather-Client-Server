@@ -170,4 +170,3 @@ curl "http://127.0.0.1:22/weather?city=Gävle"
 ```
 
 ---
-Happy hacking!

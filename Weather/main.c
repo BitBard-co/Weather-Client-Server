@@ -5,6 +5,8 @@
 #include "includes/meteo.h"
 #include "includes/city.h"
 #include "includes/utils.h"
+#include "includes/networkhandler.h"
+#include "includes/http.h"
 
 int main() {
     printf("=== Weather CLI Application ===\n");
@@ -45,12 +47,16 @@ int main() {
                         if (cities_get(&cities, input, &selected_city) == 0 && selected_city != NULL) {
                             printf("\nFetching weather for %s...\n", selected_city->name);
                             
-                            if (meteo_get_weather_data(selected_city->latitude, 
-                                                     selected_city->longitude, 
-                                                     selected_city->name) == 0) {
-                                printf("Weather data retrieved successfully!\n");
+                            // Query local HTTP server for weather data
+                            char url[256];
+                            snprintf(url, sizeof(url), "http://127.0.0.1:8080/weather?city=%s", selected_city->name);
+                            NetworkHandler* nh = NULL;
+                            int rc = http_api_request(url, &nh);
+                            if (rc == 0 && nh && nh->data) {
+                                printf("\nServer response (JSON):\n%.400s\n", nh->data);
+                                networkhandler_dispose(nh);
                             } else {
-                                printf("Failed to retrieve weather data.\n");
+                                printf("Failed to retrieve weather from server. Is it running? rc=%d\n", rc);
                             }
                         } else {
                             printf("City not found. Try option 2 to search for it.\n");
