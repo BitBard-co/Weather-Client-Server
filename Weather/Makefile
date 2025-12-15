@@ -5,101 +5,86 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -g -std=c17 -Wno-deprecated-non-prototype
 INCLUDES = -I./includes -I./src/libs/cJSON -I/usr/include/x86_64-linux-gnu
-LDFLAGS = -lssl -lcrypto -lcurl
+LDFLAGS = -lssl -lcrypto
 
 # Directories
 SRC_DIR = projekt
 BUILD_DIR = build
 CJSON_DIR = src/libs/cJSON
 
-# Source files (main weather application)
-SOURCES = main.c \
-          $(SRC_DIR)/cache.c \
-          $(SRC_DIR)/cities.c \
-          $(SRC_DIR)/city.c \
-          $(SRC_DIR)/http.c \
-          $(SRC_DIR)/meteo.c \
-          $(SRC_DIR)/networkhandler.c \
-          $(SRC_DIR)/parsedata.c \
-          $(SRC_DIR)/utils.c
+# Automatically find all source files
+PROJECT_SOURCES := $(wildcard $(SRC_DIR)/*.c)
+CJSON_SOURCES := $(wildcard $(CJSON_DIR)/*.c)
+MAIN_SOURCE = main.c
 
-# cJSON source files
-CJSON_SOURCES = $(CJSON_DIR)/cJSON.c
+# Convert to object file paths
+OBJECTS := $(PROJECT_SOURCES:%.c=$(BUILD_DIR)/%.o)
+OBJECTS += $(CJSON_SOURCES:%.c=$(BUILD_DIR)/%.o)
+MAIN_OBJ := $(BUILD_DIR)/main.o
 
-# Object files  
-MAIN_OBJ = $(BUILD_DIR)/main.o
-PROJ_OBJECTS = $(filter-out main.c,$(SOURCES))
-OBJECTS = $(PROJ_OBJECTS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
-CJSON_OBJECTS = $(CJSON_SOURCES:$(CJSON_DIR)/%.c=$(BUILD_DIR)/%.o)
-
-# Main executable
+# Target executables
 TARGET = Weather
+SERVER_TARGET = WeatherServer
 
-# Default target
-all: $(TARGET)
+all: $(TARGET) $(SERVER_TARGET)
 
-# Create build directory
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
+	mkdir -p $(BUILD_DIR)/$(SRC_DIR)
+	mkdir -p $(BUILD_DIR)/$(CJSON_DIR)
+	mkdir -p $(BUILD_DIR)/Robinsfile
 
-# Build main executable
-$(TARGET): $(BUILD_DIR) $(MAIN_OBJ) $(OBJECTS) $(CJSON_OBJECTS)
-	$(CC) $(MAIN_OBJ) $(OBJECTS) $(CJSON_OBJECTS) $(LDFLAGS) -o $@
+$(TARGET): $(BUILD_DIR) $(MAIN_OBJ) $(OBJECTS)
+	$(CC) $(MAIN_OBJ) $(OBJECTS) $(LDFLAGS) -o $@
 
-# Compile main.c
-$(MAIN_OBJ): main.c
+# Compile .c → .o
+$(BUILD_DIR)/%.o: %.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-# Compile projekt source files
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+# Server build
+SERVER_SOURCE = server_main.c
+SERVER_OBJ := $(BUILD_DIR)/server_main.o
+ROBINS_SOURCES := Robinsfile/HTTPServer.c Robinsfile/HTTPServerConnection.c Robinsfile/TCPServer.c Robinsfile/TCPClient.c Robinsfile/smw.c
+ROBINS_OBJECTS := $(ROBINS_SOURCES:%.c=$(BUILD_DIR)/%.o)
+
+$(SERVER_TARGET): $(BUILD_DIR) $(SERVER_OBJ) $(OBJECTS) $(ROBINS_OBJECTS)
+	$(CC) $(SERVER_OBJ) $(OBJECTS) $(ROBINS_OBJECTS) $(LDFLAGS) -o $@
+
+$(BUILD_DIR)/Robinsfile/%.o: Robinsfile/%.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-# Compile cJSON source files
-$(BUILD_DIR)/%.o: $(CJSON_DIR)/%.c
+$(BUILD_DIR)/server_main.o: server_main.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-# Run the weather application
+# Run program
 run: $(TARGET)
 	./$(TARGET)
 
-# Build server
-server: $(BUILD_DIR)
+run-server: $(SERVER_TARGET)
+	./$(SERVER_TARGET)
+
+# Build subprojects (optional)
+server:
 	$(MAKE) -C server
 
-# Build client
-client: $(BUILD_DIR)
-	$(MAKE) -C client
-
-# Run server
 run-server: server
 	cd server && ./server
 
-# Run client  
-run-client: client
-	cd client && ./client
-
-# Clean build files
 clean:
-	rm -rf $(BUILD_DIR)
-	rm -f $(TARGET)
-	$(MAKE) -C server clean 2>/dev/null || true
-	$(MAKE) -C client clean 2>/dev/null || true
+	rm -rf $(BUILD_DIR) $(TARGET) $(SERVER_TARGET)
+ 
 
-# Clean all generated files including caches
 clean-all: clean
 	rm -rf cache cities
 
-# Help target
 help:
-	@echo "Available targets:"
-	@echo "  all        - Build the main Weather application"
-	@echo "  run        - Build and run the Weather application"
-	@echo "  server     - Build the TCP server"
-	@echo "  client     - Build the TCP client"
-	@echo "  run-server - Build and run the TCP server"
-	@echo "  run-client - Build and run the TCP client"
-	@echo "  clean      - Remove build files"
-	@echo "  clean-all  - Remove build files and cache directories"
-	@echo "  help       - Show this help message"
+	@echo "=== Weather build system ==="
+	@echo " make          - Build everything"
+	@echo " make run      - Build and run Weather"
+	@echo " make server   - Build TCP demo server"
+	@echo " make clean    - Remove build files"
+	@echo " make clean-all - Full cleanup including cache"
+	@echo "============================="
 
-.PHONY: all run server client run-server run-client clean clean-all help
+.PHONY: all run server run-server clean clean-all help

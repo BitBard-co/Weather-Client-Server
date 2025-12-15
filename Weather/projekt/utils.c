@@ -104,11 +104,15 @@ int utils_create_folder(const char* _Path) {
 	return 0;
 }
 
-int utils_compare_time(char* _Filename, char* _Path, int _Interval){
-  char filepath[60];
-  sprintf(filepath, "%s/%s.json",_Path, _Filename);
+int utils_compare_time(char* _Filename, char* _Path, int _Interval) {
+    if (_Filename == NULL || _Path == NULL) {
+        return -1;
+    }
 
-	struct stat file_info;
+    char filepath[60];
+    snprintf(filepath, sizeof(filepath), "%s/%s.json", _Path, _Filename);
+
+    struct stat file_info;
     if (stat(filepath, &file_info) == -1) {
         perror("stat");
         return -1;
@@ -118,54 +122,59 @@ int utils_compare_time(char* _Filename, char* _Path, int _Interval){
     double diff = difftime(now, file_info.st_mtime);
 
     if (diff < _Interval) { 
-      return 0;
+        return 0;   /* filen är "ny" nog */
     } else { 
-      return 1;
+        return 1;   /* filen är för gammal */
     }
 }
 
-char* utils_hash_url(char* _URL){
-  unsigned int i;
+char* utils_hash_url(char* _URL) {
+    if (_URL == NULL) {
+        return NULL;
+    }
 
-  unsigned char digest[EVP_MAX_MD_SIZE]; /* Allocate buffer for all functions */
-  unsigned int digest_len; /* Actual length in bytes of final hash*/
+    unsigned int i;
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int digest_len = 0;
 
-  EVP_MD_CTX *ctx = EVP_MD_CTX_new(); /*OBject that saves state, hashing algoritm etc*/
-  if (!ctx) {
-      fprintf(stderr, "Could not create EVP_MD_CTX\n");
-      return NULL;
-  }
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    if (!ctx) {
+        fprintf(stderr, "Could not create EVP_MD_CTX\n");
+        return NULL;
+    }
 
-  if (EVP_DigestInit_ex(ctx, EVP_md5(), NULL) != 1) { /*Sets MD5 as algoritm for ctx object*/
-      fprintf(stderr, "EVP_DigestInit_ex failed\n");
-      EVP_MD_CTX_free(ctx);
-      return NULL;
-  }
+    if (EVP_DigestInit_ex(ctx, EVP_md5(), NULL) != 1) {
+        fprintf(stderr, "EVP_DigestInit_ex failed\n");
+        EVP_MD_CTX_free(ctx);
+        return NULL;
+    }
 
-  if (EVP_DigestUpdate(ctx, _URL, strlen(_URL)) != 1) { /*Inputs the bytes from text to ctx object*/
-      fprintf(stderr, "EVP_DigestUpdate failed\n");
-      EVP_MD_CTX_free(ctx);
-      return NULL;
-  }
+    if (EVP_DigestUpdate(ctx, _URL, strlen(_URL)) != 1) {
+        fprintf(stderr, "EVP_DigestUpdate failed\n");
+        EVP_MD_CTX_free(ctx);
+        return NULL;
+    }
 
-  if (EVP_DigestFinal_ex(ctx, digest, &digest_len) != 1) { /*Finalizes data transfer and fills digest buffer with bytes (16for md5)*/
-      fprintf(stderr, "EVP_DigestFinal_ex failed\n");
-      EVP_MD_CTX_free(ctx);
-      return NULL;
-  }
+    if (EVP_DigestFinal_ex(ctx, digest, &digest_len) != 1) {
+        fprintf(stderr, "EVP_DigestFinal_ex failed\n");
+        EVP_MD_CTX_free(ctx);
+        return NULL;
+    }
 
-  EVP_MD_CTX_free(ctx); /*Free ctx object so it doesnt leak*/
+    EVP_MD_CTX_free(ctx);
 
-  char* md5_string = (char*)malloc(digest_len * 2 + 1);
-   /*cReate buffer for hashed string*/
-  
-  for (i = 0; i < digest_len; i++) { /*Convert to hex*/
-      sprintf(&md5_string[i*2], "%02x", digest[i]);
-  }
-  md5_string[digest_len * 2] = '\0';
+    char* md5_string = (char*)malloc(digest_len * 2 + 1);
+    if (md5_string == NULL) {
+        fprintf(stderr, "malloc failed in utils_hash_url\n");
+        return NULL;
+    }
 
-  
-  return md5_string; /* Needs to be freed by caller*/
+    for (i = 0; i < digest_len; i++) {
+        snprintf(&md5_string[i * 2], 3, "%02x", digest[i]);
+    }
+    md5_string[digest_len * 2] = '\0';
+
+    return md5_string; /* Needs to be freed by caller */
 }
 
 int utils_strcasecmp(char* _StringOne, char* _StringTwo) {
@@ -189,22 +198,38 @@ void utils_replace_swedish_chars(char* _String) {
 
   while(*source) {
 
-    /*Check utf-8 sequences, first byte = source[0]*/
+    /* UTF-8 sequences (two bytes) */
     if(source[0] == 0xC3 && source[1] != '\0') { /* åäöÅÄÖ all start with C3 in utf-8 */
-      switch(source[1]) { /*check second byte*/
-        case 0xA5: /*å*/
-        case 0x85: /*Å*/
-        case 0xA4: /*ä*/
-        case 0x84: /*Ä*/
+      switch(source[1]) { /* second byte */
+        case 0xA5: /* å */
+        case 0x85: /* Å */
+        case 0xA4: /* ä */
+        case 0x84: /* Ä */
           *(destination)++ = 'a';
-          (source) += 2; /*If found we jump 2 bytes to the next char*/
+          source += 2;
           continue;
-        case 0xB6: /*ö*/
-        case 0x96: /*Ö*/
+        case 0xB6: /* ö */
+        case 0x96: /* Ö */
           *(destination)++ = 'o';
-          (source) += 2; /*If found we jump 2 bytes to the next char*/
+          source += 2;
           continue;
       }
+    }
+
+    /* Latin-1 single byte forms (common in Windows console / CP1252 input) */
+    switch(source[0]) {
+      case 0xE5: /* å */
+      case 0xC5: /* Å */
+      case 0xE4: /* ä */
+      case 0xC4: /* Ä */
+        *(destination)++ = 'a';
+        source++;
+        continue;
+      case 0xF6: /* ö */
+      case 0xD6: /* Ö */
+        *(destination)++ = 'o';
+        source++;
+        continue;
     }
 
     /* Handle combining marks that can appear after base letters (e.g., a + \u0308, A + \u030A) */
@@ -212,14 +237,12 @@ void utils_replace_swedish_chars(char* _String) {
       switch (source[1]) {
         case 0x88: /* \u0308 COMBINING DIAERESIS */
         case 0x8A: /* \u030A COMBINING RING ABOVE */
-          /* Skip combining mark entirely to normalize to base letter */
-          source += 2;
+          source += 2; /* skip mark */
           continue;
       }
     }
 
-    *(destination)++ = *(source)++; /*Copy current byte
-    multibyte chars will be copied over multiple iterations*/
+    *(destination)++ = *(source)++; /* copy byte */
   }
 
   *(destination) = '\0';
