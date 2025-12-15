@@ -4,6 +4,9 @@
 #include "includes/cities.h"
 #include "includes/city.h"
 #include "includes/networkhandler.h"
+#include "Robinsfile/smw.h"
+#include <time.h>
+#include <unistd.h>
 #include "Robinsfile/HTTPServer.h"
 #include "Robinsfile/HTTPServerConnection.h"
 
@@ -134,6 +137,7 @@ static int on_request(void* ctx)
 
 int main()
 {
+    smw_init();
     WeatherServerContext wctx = {0};
     if(cities_init(&wctx.cities) != 0)
     {
@@ -150,10 +154,14 @@ int main()
     }
 
     printf("Weather HTTP Server running on port 8080 (GET /weather?city=Name)\n");
-    // Simple loop to keep process alive; smw task system runs callbacks
+    // Drive the simple mini worker task system
     for(;;)
     {
-        sleep(1);
+        // Fallback to coarse ms using time(NULL)
+        uint64_t ms = (uint64_t)time(NULL) * 1000ULL;
+        smw_work(ms);
+        // small sleep to avoid busy loop
+        usleep(1000);
     }
 
     HTTPServer_DisposePtr(&server);
