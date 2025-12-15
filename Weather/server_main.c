@@ -1,6 +1,9 @@
+// Enable POSIX prototypes (e.g., nanosleep)
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include "includes/cities.h"
 #include "includes/city.h"
 #include "includes/networkhandler.h"
@@ -49,20 +52,21 @@ static int extract_param(const char* url, const char* key, char* out, size_t out
 static int on_connection(void* _Context, HTTPServerConnection* _Connection)
 {
     // Pass the connection itself as the callback context; use global for server context
+    (void)_Context; // suppress unused-parameter warning
     HTTPServerConnection_SetCallback(_Connection, _Connection, on_request);
     return 0;
 }
 
 static int write_response(TCPClient* tcp, const char* status, const char* ctype, const char* body)
-{har header[256];
-    c
+{
+    char header[256];
     int blen = body ? (int)strlen(body) : 0;
     int hlen = snprintf(header, sizeof(header),
         "%s\r\nContent-Type: %s\r\nContent-Length: %d\r\nConnection: close\r\n\r\n",
         status, ctype, blen);
     if(hlen < 0) return -1;
-    TCPClient_Write(tcp, (const uint8_t*)header, hlen);
-    if(blen > 0) TCPClient_Write(tcp, (const uint8_t*)body, blen);
+    TCPClient_Write(tcp, (const uint8_t*)header, (size_t)hlen);
+    if(blen > 0) TCPClient_Write(tcp, (const uint8_t*)body, (size_t)blen);
     return 0;
 }
 
@@ -160,8 +164,9 @@ int main()
         // Fallback to coarse ms using time(NULL)
         uint64_t ms = (uint64_t)time(NULL) * 1000ULL;
         smw_work(ms);
-        // small sleep to avoid busy loop
-        usleep(1000);
+        // small sleep to avoid busy loop (~1ms)
+        struct timespec ts; ts.tv_sec = 0; ts.tv_nsec = 1000000L;
+        nanosleep(&ts, NULL);
     }
 
     HTTPServer_DisposePtr(&server);
