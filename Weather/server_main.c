@@ -54,8 +54,8 @@ static int on_connection(void* _Context, HTTPServerConnection* _Connection)
 }
 
 static int write_response(TCPClient* tcp, const char* status, const char* ctype, const char* body)
-{
-    char header[256];
+{har header[256];
+    c
     int blen = body ? (int)strlen(body) : 0;
     int hlen = snprintf(header, sizeof(header),
         "%s\r\nContent-Type: %s\r\nContent-Length: %d\r\nConnection: close\r\n\r\n",
