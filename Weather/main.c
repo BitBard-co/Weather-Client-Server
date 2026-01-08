@@ -8,6 +8,152 @@
 #include "includes/networkhandler.h"
 #include "includes/http.h"
 
+static int is_hex_digit(char c)
+{
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+}
+
+// If the payload looks like HTTP chunked transfer framing, decode it for display/parsing.
+// Returns newly allocated buffer (caller frees) or NULL if decoding fails.
+static char* try_decode_http_chunked(const char* in)
+{
+    if (in == NULL) return NULL;
+
+    const char* p = in;
+    while (*p == '\r' || *p == '\n' || *p == ' ' || *p == '\t') p++;
+
+    // Heuristic: must start with hex digits then CRLF.
+    if (!is_hex_digit(*p)) return NULL;
+    const char* first_crlf = strstr(p, "\r\n");
+    if (first_crlf == NULL) return NULL;
+    for (const char* t = p; t < first_crlf; t++) {
+        if (*t == ';') break; // chunk extensions
+        if (!is_hex_digit(*t)) return NULL;
+    }
+
+    size_t in_len = strlen(in);
+    char* out = (char*)malloc(in_len + 1);
+    if (out == NULL) return NULL;
+    size_t out_len = 0;
+
+    while (1) {
+        // Read chunk size line
+        char* endptr = NULL;
+        unsigned long chunk_size = strtoul(p, &endptr, 16);
+        if (endptr == (char*)p) {
+            free(out);
+            return NULL;
+        }
+        const char* line_end = strstr(p, "\r\n");
+        if (line_end == NULL) {
+            free(out);
+            return NULL;
+        }
+        p = line_end + 2;
+
+        if (chunk_size == 0) {
+            // Consume trailing headers until final CRLFCRLF (optional)
+            break;
+        }
+
+        // Copy chunk data
+        for (unsigned long i = 0; i < chunk_size; i++) {
+            if (p[i] == '\0') {
+                free(out);
+                return NULL;
+            }
+        }
+        memcpy(out + out_len, p, (size_t)chunk_size);
+        out_len += (size_t)chunk_size;
+        p += chunk_size;
+
+        // Expect CRLF after chunk data
+        if (p[0] != '\r' || p[1] != '\n') {
+            free(out);
+            return NULL;
+        }
+        p += 2;
+    }
+
+    out[out_len] = '\0';
+    return out;
+}
+
+static void print_weather_pretty(const char* city_name, const char* json)
+{
+    if (json == NULL || json[0] == '\0') {
+        printf("\n(no weather data)\n");
+        return;
+    }
+
+    // Some upstream responses may be cached/stored with HTTP chunked framing.
+    // We only decode for display/parsing (does not change server behavior).
+    char* decoded = NULL;
+    const char* to_parse = json;
+
+    cJSON* root = cJSON_Parse(to_parse);
+    if (root == NULL || !cJSON_IsObject(root)) {
+        if (root != NULL) cJSON_Delete(root);
+        decoded = try_decode_http_chunked(json);
+        if (decoded != NULL) {
+            to_parse = decoded;
+            root = cJSON_Parse(to_parse);
+        }
+    }
+
+    if (root == NULL || !cJSON_IsObject(root)) {
+        if (root != NULL) cJSON_Delete(root);
+        if (decoded != NULL) free(decoded);
+        printf("\n(raw server response)\n%s\n", json);
+        return;
+    }
+
+    const cJSON* latitude = cJSON_GetObjectItemCaseSensitive(root, "latitude");
+    const cJSON* longitude = cJSON_GetObjectItemCaseSensitive(root, "longitude");
+    const cJSON* timezone = cJSON_GetObjectItemCaseSensitive(root, "timezone");
+    const cJSON* current = cJSON_GetObjectItemCaseSensitive(root, "current_weather");
+
+    const cJSON* temp = current ? cJSON_GetObjectItemCaseSensitive(current, "temperature") : NULL;
+    const cJSON* windspeed = current ? cJSON_GetObjectItemCaseSensitive(current, "windspeed") : NULL;
+    const cJSON* winddir = current ? cJSON_GetObjectItemCaseSensitive(current, "winddirection") : NULL;
+    const cJSON* weathercode = current ? cJSON_GetObjectItemCaseSensitive(current, "weathercode") : NULL;
+    const cJSON* time = current ? cJSON_GetObjectItemCaseSensitive(current, "time") : NULL;
+
+    printf("\nWeather summary\n");
+    printf("\n");
+    printf("📍 City: %s\n", city_name ? city_name : "(unknown)");
+    if (cJSON_IsNumber(latitude) && cJSON_IsNumber(longitude)) {
+        printf("🧭 Coords: %.4f, %.4f\n", latitude->valuedouble, longitude->valuedouble);
+    }
+    if (cJSON_IsString(timezone) && timezone->valuestring) {
+        printf("🗺️  Timezone: %s\n", timezone->valuestring);
+    }
+    if (cJSON_IsString(time) && time->valuestring) {
+        printf("🕒 Time: %s\n", time->valuestring);
+    }
+    if (cJSON_IsNumber(temp)) {
+        printf("🌡️  Temperature: %.1f °C\n", temp->valuedouble);
+    }
+    if (cJSON_IsNumber(windspeed) || cJSON_IsNumber(winddir)) {
+        printf("💨 Wind: ");
+        if (cJSON_IsNumber(windspeed)) printf("%.1f km/h", windspeed->valuedouble);
+        if (cJSON_IsNumber(winddir)) printf(" @ %.0f°", winddir->valuedouble);
+        printf("\n");
+    }
+    if (cJSON_IsNumber(weathercode)) {
+        printf("🌦️  Weather code: %d\n", weathercode->valueint);
+    }
+
+    char* pretty = cJSON_Print(root);
+    if (pretty != NULL) {
+        printf("\nRaw JSON (pretty)\n%s\n", pretty);
+        free(pretty);
+    }
+
+    cJSON_Delete(root);
+    if (decoded != NULL) free(decoded);
+}
+
 int main() {
     printf("=== Weather CLI Application ===\n");
     printf("Welcome to the Weather Client-Server Application!\n\n");
@@ -53,7 +199,7 @@ int main() {
                             NetworkHandler* nh = NULL;
                             int rc = http_api_request(url, &nh);
                             if (rc == 0 && nh && nh->data) {
-                                printf("\nServer response (JSON):\n%.400s\n", nh->data);
+                                print_weather_pretty(selected_city->name, nh->data);
                                 networkhandler_dispose(nh);
                             } else {
                                 printf("Failed to retrieve weather from server. Is it running? rc=%d\n", rc);
