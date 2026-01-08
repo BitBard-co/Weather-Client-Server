@@ -144,10 +144,14 @@ static void print_weather_pretty(const char* city_name, const char* json)
         printf("🌦️  Weather code: %d\n", weathercode->valueint);
     }
 
-    char* pretty = cJSON_Print(root);
-    if (pretty != NULL) {
-        printf("\nRaw JSON (pretty)\n%s\n", pretty);
-        free(pretty);
+    printf("\nMore? Type 'm' + Enter to show raw JSON, or just press Enter to skip: ");
+    char choice[8];
+    if (fgets(choice, sizeof(choice), stdin) != NULL && (choice[0] == 'm' || choice[0] == 'M')) {
+        char* pretty = cJSON_Print(root);
+        if (pretty != NULL) {
+            printf("\nRaw JSON\n%s\n", pretty);
+            free(pretty);
+        }
     }
 
     cJSON_Delete(root);
